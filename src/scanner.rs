@@ -1,12 +1,11 @@
 use crate::Attribute;
 
+use crate::ast::OpKind;
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     Value(u64),
-    EqualEqual,
-    Greater,
-    Plus,
-    Star,
+    BinOp(OpKind),
     Attr(Attribute),
     Eof,
     Error(String),
@@ -37,9 +36,9 @@ impl<'a> Scanner<'a> {
         };
 
         match ch {
-            '>' => Token::Greater,
-            '+' => Token::Plus,
-            '*' => Token::Star,
+            '>' => Token::BinOp(OpKind::Greater),
+            '+' => Token::BinOp(OpKind::Plus),
+            '*' => Token::BinOp(OpKind::Multiply),
             _ if ch.is_numeric() => {
                 self.start = ind;
                 self.current = ind;

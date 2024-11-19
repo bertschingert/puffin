@@ -129,11 +129,12 @@ impl BinaryOp {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum OpKind {
     EqualEqual,
     Greater,
     Plus,
+    Multiply,
 }
 
 impl OpKind {
@@ -160,6 +161,11 @@ impl OpKind {
                 let r = r.to_integer();
                 Value::Integer(l + r)
             }
+            OpKind::Multiply => {
+                let l = l.to_integer();
+                let r = r.to_integer();
+                Value::Integer(l * r)
+            }
         }
     }
 }
@@ -184,6 +190,7 @@ impl std::fmt::Display for Expression {
                     OpKind::EqualEqual => "==",
                     OpKind::Greater => ">",
                     OpKind::Plus => "+",
+                    OpKind::Multiply => "*",
                 })?;
                 write!(f, "{} ", op.left)?;
                 write!(f, "{} ", op.right)?;

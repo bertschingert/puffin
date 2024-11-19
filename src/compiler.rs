@@ -1,6 +1,5 @@
 use crate::ast::*;
 use crate::scanner::*;
-use crate::Attribute;
 use crate::Value;
 
 pub struct Compiler<'a> {
@@ -22,7 +21,7 @@ impl<'a> Compiler<'a> {
         self.next();
 
         let cond = Condition {
-            expr: self.expression(),
+            expr: self.expression(0),
         };
 
         println!("{}", cond.expr);
@@ -43,14 +42,19 @@ impl<'a> Compiler<'a> {
         &self.previous
     }
 
-    fn expression(&mut self) -> Expression {
+    fn expression(&mut self, min_precedence: u8) -> Expression {
         let mut left = self.factor();
 
         let mut next = self.peek();
-        while *next == Token::Plus {
-            let op = self.binary_op();
+        while let Token::BinOp(op) = next {
+            let op = *op;
+            if Self::op_precedence(op) < min_precedence {
+                break;
+            }
 
-            let right = self.factor();
+            self.next();
+
+            let right = self.expression(Self::op_precedence(op));
             left = Expression::Bin(BinaryOp {
                 kind: op,
                 left: Box::new(left),
@@ -63,9 +67,13 @@ impl<'a> Compiler<'a> {
         left
     }
 
-    fn binary_op(&mut self) -> OpKind {
-        self.next();
-        OpKind::Plus
+    fn op_precedence(op: OpKind) -> u8 {
+        match op {
+            OpKind::Multiply => 3,
+            OpKind::Plus => 2,
+            OpKind::Greater => 1,
+            OpKind::EqualEqual => 1,
+        }
     }
 
     fn factor(&mut self) -> Expression {
