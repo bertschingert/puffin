@@ -41,7 +41,7 @@ impl Program {
                 match ent.file_name().to_str() {
                     Some(".") => continue,
                     Some("..") => continue,
-                    _ => { },
+                    _ => {}
                 };
 
                 let Ok(ty) = ent.file_type() else {
@@ -80,8 +80,10 @@ impl Program {
     pub(crate) fn run_routines(&self, f: &FileState) {
         for (condition, action) in self.routines.iter() {
             match condition {
-                Some(cond) => if cond.expr.evaluate(f).is_truthy() {
-                    action.interpret(Some(f));
+                Some(cond) => {
+                    if cond.expr.evaluate(f).is_truthy() {
+                        action.interpret(Some(f));
+                    }
                 }
                 None => action.interpret(Some(f)),
             }
@@ -186,12 +188,16 @@ impl std::fmt::Display for Expression {
             Expression::Atom(val) => write!(f, "{:?}", val),
             Expression::Attr(attr) => write!(f, "{:?}", attr),
             Expression::Bin(op) => {
-                write!(f, "({} ", match op.kind {
-                    OpKind::EqualEqual => "==",
-                    OpKind::Greater => ">",
-                    OpKind::Plus => "+",
-                    OpKind::Multiply => "*",
-                })?;
+                write!(
+                    f,
+                    "({} ",
+                    match op.kind {
+                        OpKind::EqualEqual => "==",
+                        OpKind::Greater => ">",
+                        OpKind::Plus => "+",
+                        OpKind::Multiply => "*",
+                    }
+                )?;
                 write!(f, "{} ", op.left)?;
                 write!(f, "{} ", op.right)?;
                 write!(f, ")")

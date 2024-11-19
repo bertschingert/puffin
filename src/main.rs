@@ -1,11 +1,11 @@
 use std::os::unix::fs::MetadataExt;
 
-pub mod scanner;
-pub mod compiler;
 pub mod ast;
+pub mod compiler;
+pub mod scanner;
 
-use crate::scanner::Scanner;
 use crate::compiler::Compiler;
+use crate::scanner::Scanner;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Value {
@@ -16,20 +16,20 @@ pub enum Value {
 impl Value {
     fn is_truthy(self) -> bool {
         match self {
-            Value::Integer(i) => {
-                i != 0
-            }
-            Value::Boolean(b) => b
+            Value::Integer(i) => i != 0,
+            Value::Boolean(b) => b,
         }
     }
 
     fn to_integer(self) -> u64 {
         match self {
             Value::Integer(i) => i,
-            Value::Boolean(b) => if b {
-                1
-            } else {
-                0
+            Value::Boolean(b) => {
+                if b {
+                    1
+                } else {
+                    0
+                }
             }
         }
     }

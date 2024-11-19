@@ -55,7 +55,7 @@ impl<'a> Scanner<'a> {
 
     fn attribute(&mut self) -> Token {
         loop {
-            match self.chars.peek(){
+            match self.chars.peek() {
                 Some((ind, ch)) if ch.is_alphanumeric() => {
                     self.current = *ind;
                     self.chars.next();
@@ -69,7 +69,6 @@ impl<'a> Scanner<'a> {
         }
     }
 
-
     fn number(&mut self) -> Token {
         loop {
             match self.chars.peek() {
@@ -81,7 +80,10 @@ impl<'a> Scanner<'a> {
                     let num = match self.source[self.start..self.current + 1].parse::<u64>() {
                         Ok(num) => num,
                         Err(e) => {
-                            return self.error(&format!("Could not parse number from '{}': {e}", self.current_token_text()));
+                            return self.error(&format!(
+                                "Could not parse number from '{}': {e}",
+                                self.current_token_text()
+                            ));
                         }
                     };
 
