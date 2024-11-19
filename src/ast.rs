@@ -77,7 +77,7 @@ impl Program {
         }
     }
 
-    pub fn run_routines(&self, f: &FileState) {
+    pub(crate) fn run_routines(&self, f: &FileState) {
         for (condition, action) in self.routines.iter() {
             match condition {
                 Some(cond) => if cond.expr.evaluate(f).is_truthy() {
@@ -133,6 +133,7 @@ impl BinaryOp {
 pub enum OpKind {
     EqualEqual,
     Greater,
+    Plus,
 }
 
 impl OpKind {
@@ -153,6 +154,11 @@ impl OpKind {
                 } else {
                     Value::Boolean(false)
                 }
+            }
+            OpKind::Plus => {
+                let l = l.to_integer();
+                let r = r.to_integer();
+                Value::Integer(l + r)
             }
         }
     }
@@ -177,6 +183,7 @@ impl std::fmt::Display for Expression {
                 write!(f, "({} ", match op.kind {
                     OpKind::EqualEqual => "==",
                     OpKind::Greater => ">",
+                    OpKind::Plus => "+",
                 })?;
                 write!(f, "{} ", op.left)?;
                 write!(f, "{} ", op.right)?;

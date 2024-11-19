@@ -40,7 +40,7 @@ struct FileState {
     md: std::fs::Metadata,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Attribute {
     Size,
     Owner,

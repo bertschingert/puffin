@@ -19,9 +19,13 @@ impl<'a> Compiler<'a> {
     }
 
     pub fn compile(&mut self) -> Program {
+        self.next();
+
         let cond = Condition {
             expr: self.expression(),
         };
+
+        println!("{}", cond.expr);
 
         Program {
             begin: None,
@@ -30,28 +34,48 @@ impl<'a> Compiler<'a> {
         }
     }
 
+    fn peek(&self) -> &Token {
+        &self.current
+    }
+
+    fn next(&mut self) -> &Token {
+        self.previous = std::mem::replace(&mut self.current, self.scanner.next_token());
+        &self.previous
+    }
+
     fn expression(&mut self) -> Expression {
-        let left = match self.scanner.next_token() {
-            Token::Attr(a) => Expression::Attr(a),
-            Token::Value(v) => Expression::Atom(Value::Integer(v)),
-            tok => panic!("Unexpected token: {:?}", tok),
-        };
+        let mut left = self.factor();
 
-        let op = match self.scanner.next_token() {
-            Token::Greater => OpKind::Greater,
-            tok => panic!("Unexpected token: {:?}", tok),
-        };
+        let mut next = self.peek();
+        while *next == Token::Plus {
+            let op = self.binary_op();
 
-        let right = match self.scanner.next_token() {
-            Token::Attr(a) => Expression::Attr(a),
-            Token::Value(v) => Expression::Atom(Value::Integer(v)),
-            tok => panic!("Unexpected token: {:?}", tok),
-        };
+            let right = self.factor();
+            left = Expression::Bin(BinaryOp {
+                kind: op,
+                left: Box::new(left),
+                right: Box::new(right),
+            });
 
-        Expression::Bin(BinaryOp {
-            kind: op,
-            left: Box::new(left),
-            right: Box::new(right),
-        })
+            next = self.peek();
+        }
+
+        left
+    }
+
+    fn binary_op(&mut self) -> OpKind {
+        self.next();
+        OpKind::Plus
+    }
+
+    fn factor(&mut self) -> Expression {
+        let next = self.peek();
+        let e = match next {
+            Token::Value(v) => Expression::Atom(Value::Integer(*v)),
+            Token::Attr(a) => Expression::Attr(*a),
+            t => panic!("Unexpected token {:?}", t),
+        };
+        self.next();
+        e
     }
 }

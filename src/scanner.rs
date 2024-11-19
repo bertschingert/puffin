@@ -5,6 +5,8 @@ pub enum Token {
     Value(u64),
     EqualEqual,
     Greater,
+    Plus,
+    Star,
     Attr(Attribute),
     Eof,
     Error(String),
@@ -36,6 +38,8 @@ impl<'a> Scanner<'a> {
 
         match ch {
             '>' => Token::Greater,
+            '+' => Token::Plus,
+            '*' => Token::Star,
             _ if ch.is_numeric() => {
                 self.start = ind;
                 self.current = ind;
@@ -110,6 +114,6 @@ fn attribute_from_str(s: &str) -> Token {
     match s {
         "size" => Token::Attr(Attribute::Size),
         "owner" => Token::Attr(Attribute::Owner),
-        a => Token::Error("Unknown attribute".to_string()),
+        a => Token::Error(format!("Unknown attribute '{a}'")),
     }
 }
