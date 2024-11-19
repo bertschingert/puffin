@@ -70,7 +70,9 @@ impl<'a> Compiler<'a> {
     fn op_precedence(op: OpKind) -> u8 {
         match op {
             OpKind::Multiply => 3,
+            OpKind::Divide => 3,
             OpKind::Plus => 2,
+            OpKind::Minus => 2,
             OpKind::Greater => 1,
             OpKind::EqualEqual => 1,
         }

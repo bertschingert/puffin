@@ -38,7 +38,9 @@ impl<'a> Scanner<'a> {
         match ch {
             '>' => Token::BinOp(OpKind::Greater),
             '+' => Token::BinOp(OpKind::Plus),
+            '-' => Token::BinOp(OpKind::Minus),
             '*' => Token::BinOp(OpKind::Multiply),
+            '/' => Token::BinOp(OpKind::Divide),
             _ if ch.is_numeric() => {
                 self.start = ind;
                 self.current = ind;

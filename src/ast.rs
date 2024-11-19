@@ -136,7 +136,9 @@ pub enum OpKind {
     EqualEqual,
     Greater,
     Plus,
+    Minus,
     Multiply,
+    Divide,
 }
 
 impl OpKind {
@@ -163,10 +165,20 @@ impl OpKind {
                 let r = r.to_integer();
                 Value::Integer(l + r)
             }
+            OpKind::Minus => {
+                let l = l.to_integer();
+                let r = r.to_integer();
+                Value::Integer(l - r)
+            }
             OpKind::Multiply => {
                 let l = l.to_integer();
                 let r = r.to_integer();
                 Value::Integer(l * r)
+            }
+            OpKind::Divide => {
+                let l = l.to_integer();
+                let r = r.to_integer();
+                Value::Integer(l / r)
             }
         }
     }
@@ -195,7 +207,9 @@ impl std::fmt::Display for Expression {
                         OpKind::EqualEqual => "==",
                         OpKind::Greater => ">",
                         OpKind::Plus => "+",
+                        OpKind::Minus => "-",
                         OpKind::Multiply => "*",
+                        OpKind::Divide => "/",
                     }
                 )?;
                 write!(f, "{} ", op.left)?;
