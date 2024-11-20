@@ -20,12 +20,37 @@ impl<'a> Compiler<'a> {
     pub fn compile(&mut self) -> Program {
         self.next();
 
-        let routine = self.routine();
+        let mut begin = None;
+        let mut end = None;
+        let mut routines = Vec::new();
+        loop {
+            match self.peek() {
+                Token::Eof => break,
+                Token::Begin => {
+                    self.next();
+                    self.eat(Token::LeftBrace);
+                    begin = Some(self.action());
+                }
+                Token::End => {
+                    self.next();
+                    self.eat(Token::LeftBrace);
+                    end = Some(self.action());
+                }
+                _ => routines.push(self.routine()),
+            };
+        }
 
         Program {
-            begin: None,
-            end: None,
-            routines: vec![routine],
+            begin,
+            end,
+            routines,
+        }
+    }
+
+    fn eat(&mut self, tok: Token) {
+        let next = self.next();
+        if *next != tok {
+            panic!("Unexpected token: {:?}", next);
         }
     }
 

@@ -4,6 +4,8 @@ use crate::ast::OpKind;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
+    Begin,
+    End,
     LeftBrace,
     RightBrace,
     Value(u64),
@@ -53,13 +55,13 @@ impl<'a> Scanner<'a> {
             _ if ch.is_alphabetic() => {
                 self.start = ind;
                 self.current = ind;
-                self.attribute()
+                self.word()
             }
             _ => self.error(&format!("Unexpected character: {}", ch)),
         }
     }
 
-    fn attribute(&mut self) -> Token {
+    fn word(&mut self) -> Token {
         loop {
             match self.chars.peek() {
                 Some((ind, ch)) if ch.is_alphanumeric() => {
@@ -69,7 +71,11 @@ impl<'a> Scanner<'a> {
                 _ => {
                     // TODO: make this return an attribute enum, not a string
                     let a = &self.source[self.start..self.current + 1];
-                    return attribute_from_str(a);
+                    return match a {
+                        "BEGIN" => Token::Begin,
+                        "END" => Token::End,
+                        a => attribute_from_str(a),
+                    };
                 }
             }
         }
