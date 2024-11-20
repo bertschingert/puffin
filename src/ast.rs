@@ -5,7 +5,7 @@ use crate::Value;
 pub struct Program {
     pub begin: Option<Action>,
     pub end: Option<Action>,
-    pub routines: Vec<(Option<Condition>, Action)>,
+    pub routines: Vec<Routine>,
 }
 
 impl Program {
@@ -78,16 +78,27 @@ impl Program {
     }
 
     pub(crate) fn run_routines(&self, f: &FileState) {
-        for (condition, action) in self.routines.iter() {
-            match condition {
+        for routine in self.routines.iter() {
+            match &routine.cond {
                 Some(cond) => {
                     if cond.expr.evaluate(f).is_truthy() {
-                        action.interpret(Some(f));
+                        routine.action.interpret(Some(f));
                     }
                 }
-                None => action.interpret(Some(f)),
+                None => routine.action.interpret(Some(f)),
             }
         }
+    }
+}
+
+pub struct Routine {
+    cond: Option<Condition>,
+    action: Action,
+}
+
+impl Routine {
+    pub fn new(cond: Option<Condition>, action: Action) -> Self {
+        Routine { cond, action }
     }
 }
 

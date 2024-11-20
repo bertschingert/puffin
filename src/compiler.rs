@@ -20,16 +20,12 @@ impl<'a> Compiler<'a> {
     pub fn compile(&mut self) -> Program {
         self.next();
 
-        let cond = Condition {
-            expr: self.expression(0),
-        };
-
-        println!("{}", cond.expr);
+        let routine = self.routine();
 
         Program {
             begin: None,
             end: None,
-            routines: vec![(Some(cond), Action::new())],
+            routines: vec![routine],
         }
     }
 
@@ -40,6 +36,34 @@ impl<'a> Compiler<'a> {
     fn next(&mut self) -> &Token {
         self.previous = std::mem::replace(&mut self.current, self.scanner.next_token());
         &self.previous
+    }
+
+    fn routine(&mut self) -> Routine {
+        let cond = Condition {
+            expr: self.expression(0),
+        };
+
+        println!("{}", cond.expr);
+
+        let action = match self.peek() {
+            Token::LeftBrace => {
+                self.next();
+                self.action()
+            }
+            Token::Eof => Action::new(),
+            tok => panic!("Unexpected token: {:?}", tok),
+        };
+
+        Routine::new(Some(cond), action)
+    }
+
+    fn action(&mut self) -> Action {
+        match self.next() {
+            Token::RightBrace => {}
+            tok => panic!("Unexpected token: {:?}", tok),
+        };
+
+        Action::new()
     }
 
     fn expression(&mut self, min_precedence: u8) -> Expression {

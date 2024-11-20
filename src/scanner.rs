@@ -4,6 +4,8 @@ use crate::ast::OpKind;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
+    LeftBrace,
+    RightBrace,
     Value(u64),
     BinOp(OpKind),
     Attr(Attribute),
@@ -41,6 +43,8 @@ impl<'a> Scanner<'a> {
             '-' => Token::BinOp(OpKind::Minus),
             '*' => Token::BinOp(OpKind::Multiply),
             '/' => Token::BinOp(OpKind::Divide),
+            '{' => Token::LeftBrace,
+            '}' => Token::RightBrace,
             _ if ch.is_numeric() => {
                 self.start = ind;
                 self.current = ind;
