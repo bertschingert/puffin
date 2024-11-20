@@ -4,16 +4,16 @@ use crate::Value;
 
 pub struct Compiler<'a> {
     scanner: Scanner<'a>,
-    previous: Token,
     current: Token,
+    next: Token,
 }
 
 impl<'a> Compiler<'a> {
     pub fn new(scanner: Scanner<'a>) -> Self {
         Compiler {
             scanner,
-            previous: Token::Error("uninitialized".to_string()),
             current: Token::Error("uninitialized".to_string()),
+            next: Token::Error("uninitialized".to_string()),
         }
     }
 
@@ -55,12 +55,12 @@ impl<'a> Compiler<'a> {
     }
 
     fn peek(&self) -> &Token {
-        &self.current
+        &self.next
     }
 
     fn next(&mut self) -> &Token {
-        self.previous = std::mem::replace(&mut self.current, self.scanner.next_token());
-        &self.previous
+        self.current = std::mem::replace(&mut self.next, self.scanner.next_token());
+        &self.current
     }
 
     fn routine(&mut self) -> Routine {
