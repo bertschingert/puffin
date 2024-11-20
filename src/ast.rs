@@ -1,6 +1,27 @@
-use crate::Attribute;
-use crate::FileState;
-use crate::Value;
+use std::os::unix::fs::MetadataExt;
+
+struct FileState {
+    path: std::path::PathBuf,
+    md: std::fs::Metadata,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Attribute {
+    Size,
+    Owner,
+}
+
+impl Attribute {
+    fn evaluate(&self, f: Option<&FileState>) -> Value {
+        match f {
+            Some(f) => match self {
+                Attribute::Size => Value::Integer(f.md.size()),
+                Attribute::Owner => Value::Integer(f.md.uid() as u64),
+            },
+            None => panic!("Cannot evaluate attribute in BEGIN or END block"),
+        }
+    }
+}
 
 pub struct Program {
     pub begin: Option<Action>,
@@ -77,11 +98,11 @@ impl Program {
         }
     }
 
-    pub(crate) fn run_routines(&self, f: &FileState) {
+    fn run_routines(&self, f: &FileState) {
         for routine in self.routines.iter() {
             match &routine.cond {
                 Some(cond) => {
-                    if cond.expr.evaluate(f).is_truthy() {
+                    if cond.expr.evaluate(Some(f)).is_truthy() {
                         routine.action.interpret(Some(f));
                     }
                 }
@@ -106,25 +127,101 @@ pub struct Condition {
     pub expr: Expression,
 }
 
-pub struct Action {}
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum Value {
+    Integer(u64),
+    Boolean(bool),
+}
 
-impl Action {
-    pub fn new() -> Self {
-        Action {}
+impl Value {
+    fn is_truthy(self) -> bool {
+        match self {
+            Value::Integer(i) => i != 0,
+            Value::Boolean(b) => b,
+        }
     }
 
-    fn interpret(&self, f: Option<&FileState>) {
-        match f {
-            Some(f) => println!("{}", f.path.display()),
-            None => println!("BEGIN or END action"),
-        };
+    fn to_integer(self) -> u64 {
+        match self {
+            Value::Integer(i) => i,
+            Value::Boolean(b) => {
+                if b {
+                    1
+                } else {
+                    0
+                }
+            }
+        }
     }
 }
 
-pub enum Expression {
-    Bin(BinaryOp),
-    Attr(Attribute),
-    Atom(Value),
+impl std::fmt::Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Integer(i) => write!(f, "{i}"),
+            Value::Boolean(b) => match b {
+                true => write!(f, "True"),
+                false => write!(f, "False"),
+            },
+        }
+    }
+}
+
+pub enum Statement {
+    Assignment(Assignment),
+    Print(Expression),
+}
+
+impl Statement {
+    fn interpret(&self, f: Option<&FileState>) {
+        match self {
+            Statement::Assignment(_) => unimplemented!(),
+            Statement::Print(expr) => println!("{}", expr.evaluate(f)),
+        }
+    }
+}
+
+pub struct Assignment {
+    id: Identifier,
+    val: Expression,
+}
+
+pub struct Identifier {
+    id: String,
+}
+
+impl Identifier {
+    fn evaluate(&self) -> Value {
+        Value::Integer(42)
+    }
+}
+
+pub struct Action {
+    pub statements: Option<Vec<Statement>>,
+}
+
+impl Action {
+    pub fn new(statement: Option<Statement>) -> Self {
+        match statement {
+            Some(s) => Action {
+                statements: Some(vec![s]),
+            },
+            None => Action { statements: None },
+        }
+    }
+
+    fn interpret(&self, f: Option<&FileState>) {
+        match &self.statements {
+            Some(statements) => statements.iter().for_each(|s| s.interpret(f)),
+            // Default action is to print filename:
+            None => {
+                match f {
+                    Some(f) => println!("{}", f.path.display()),
+                    None => {}
+                };
+            }
+        };
+    }
 }
 
 pub struct BinaryOp {
@@ -134,7 +231,7 @@ pub struct BinaryOp {
 }
 
 impl BinaryOp {
-    fn evaluate(&self, f: &FileState) -> Value {
+    fn evaluate(&self, f: Option<&FileState>) -> Value {
         let l = self.left.evaluate(f);
         let r = self.right.evaluate(f);
 
@@ -171,36 +268,34 @@ impl OpKind {
                     Value::Boolean(false)
                 }
             }
-            OpKind::Plus => {
-                let l = l.to_integer();
-                let r = r.to_integer();
-                Value::Integer(l + r)
-            }
-            OpKind::Minus => {
-                let l = l.to_integer();
-                let r = r.to_integer();
-                Value::Integer(l - r)
-            }
-            OpKind::Multiply => {
-                let l = l.to_integer();
-                let r = r.to_integer();
-                Value::Integer(l * r)
-            }
-            OpKind::Divide => {
-                let l = l.to_integer();
-                let r = r.to_integer();
-                Value::Integer(l / r)
-            }
+            OpKind::Plus => Self::integer_op(l, r, |l, r| l + r),
+            OpKind::Minus => Self::integer_op(l, r, |l, r| l - r),
+            OpKind::Multiply => Self::integer_op(l, r, |l, r| l * r),
+            OpKind::Divide => Self::integer_op(l, r, |l, r| l / r),
         }
+    }
+
+    fn integer_op(l: Value, r: Value, f: fn(u64, u64) -> u64) -> Value {
+        let l = l.to_integer();
+        let r = r.to_integer();
+        Value::Integer(f(l, r))
     }
 }
 
+pub enum Expression {
+    Bin(BinaryOp),
+    Attr(Attribute),
+    Atom(Value),
+    Id(Identifier),
+}
+
 impl Expression {
-    fn evaluate(&self, f: &FileState) -> Value {
+    fn evaluate(&self, f: Option<&FileState>) -> Value {
         match self {
             Expression::Bin(op) => op.evaluate(f),
             Expression::Attr(attr) => attr.evaluate(f),
             Expression::Atom(v) => *v,
+            Expression::Id(id) => id.evaluate(),
         }
     }
 }
@@ -210,6 +305,7 @@ impl std::fmt::Display for Expression {
         match self {
             Expression::Atom(val) => write!(f, "{:?}", val),
             Expression::Attr(attr) => write!(f, "{:?}", attr),
+            Expression::Id(id) => write!(f, "{}", id.id),
             Expression::Bin(op) => {
                 write!(
                     f,

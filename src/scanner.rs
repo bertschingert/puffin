@@ -1,16 +1,17 @@
-use crate::Attribute;
-
-use crate::ast::OpKind;
+use crate::ast::*;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     Begin,
     End,
+    Equal,
     LeftBrace,
     RightBrace,
+    Print,
     Value(u64),
     BinOp(OpKind),
     Attr(Attribute),
+    Identifier(String),
     Eof,
     Error(String),
 }
@@ -40,6 +41,7 @@ impl<'a> Scanner<'a> {
         };
 
         match ch {
+            '=' => Token::Equal,
             '>' => Token::BinOp(OpKind::Greater),
             '+' => Token::BinOp(OpKind::Plus),
             '-' => Token::BinOp(OpKind::Minus),
@@ -69,12 +71,12 @@ impl<'a> Scanner<'a> {
                     self.chars.next();
                 }
                 _ => {
-                    // TODO: make this return an attribute enum, not a string
                     let a = &self.source[self.start..self.current + 1];
                     return match a {
                         "BEGIN" => Token::Begin,
                         "END" => Token::End,
-                        a => attribute_from_str(a),
+                        "print" => Token::Print,
+                        a => attribute_or_identifier(a),
                     };
                 }
             }
@@ -123,10 +125,10 @@ impl<'a> Scanner<'a> {
     }
 }
 
-fn attribute_from_str(s: &str) -> Token {
+fn attribute_or_identifier(s: &str) -> Token {
     match s {
         "size" => Token::Attr(Attribute::Size),
         "owner" => Token::Attr(Attribute::Owner),
-        a => Token::Error(format!("Unknown attribute '{a}'")),
+        a => Token::Identifier(a.to_string()),
     }
 }

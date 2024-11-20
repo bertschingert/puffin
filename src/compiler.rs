@@ -1,6 +1,5 @@
 use crate::ast::*;
 use crate::scanner::*;
-use crate::Value;
 
 pub struct Compiler<'a> {
     scanner: Scanner<'a>,
@@ -75,7 +74,7 @@ impl<'a> Compiler<'a> {
                 self.next();
                 self.action()
             }
-            Token::Eof => Action::new(),
+            Token::Eof => Action::new(None),
             tok => panic!("Unexpected token: {:?}", tok),
         };
 
@@ -84,11 +83,15 @@ impl<'a> Compiler<'a> {
 
     fn action(&mut self) -> Action {
         match self.next() {
-            Token::RightBrace => {}
+            Token::RightBrace => Action::new(None),
+            Token::Print => {
+                let expr = self.expression(0);
+                let action = Action::new(Some(Statement::Print(expr)));
+                self.eat(Token::RightBrace);
+                action
+            }
             tok => panic!("Unexpected token: {:?}", tok),
-        };
-
-        Action::new()
+        }
     }
 
     fn expression(&mut self, min_precedence: u8) -> Expression {
