@@ -135,3 +135,51 @@ impl<'a> Scanner<'a> {
         Token::Error(msg.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn is_error_token(t: Token) -> bool {
+        match t {
+            Token::Error(_) => true,
+            _ => false,
+        }
+    }
+    #[test]
+    fn scan_numbers() {
+        let mut p = ProgramState::new();
+        let mut s = Scanner::new("1 2 123a ");
+
+        assert_eq!(s.next_token(&mut p), Token::Value(1));
+        assert_eq!(s.next_token(&mut p), Token::Value(2));
+        assert!(is_error_token(s.next_token(&mut p)));
+        assert_eq!(s.next_token(&mut p), Token::Eof);
+    }
+
+    #[test]
+    fn scan_binary_operators() {
+        let mut p = ProgramState::new();
+        let mut s = Scanner::new("+ - */ >");
+
+        assert_eq!(s.next_token(&mut p), Token::BinOp(OpKind::Plus));
+        assert_eq!(s.next_token(&mut p), Token::BinOp(OpKind::Minus));
+        assert_eq!(s.next_token(&mut p), Token::BinOp(OpKind::Multiply));
+        assert_eq!(s.next_token(&mut p), Token::BinOp(OpKind::Divide));
+        assert_eq!(s.next_token(&mut p), Token::BinOp(OpKind::Greater));
+        assert_eq!(s.next_token(&mut p), Token::Eof);
+    }
+
+    #[test]
+    fn scan_keywords() {
+        let mut p = ProgramState::new();
+        let mut s = Scanner::new("BEGIN begin END end print");
+
+        assert_eq!(s.next_token(&mut p), Token::Begin);
+        assert_eq!(s.next_token(&mut p), Token::Begin);
+        assert_eq!(s.next_token(&mut p), Token::End);
+        assert_eq!(s.next_token(&mut p), Token::End);
+        assert_eq!(s.next_token(&mut p), Token::Print);
+        assert_eq!(s.next_token(&mut p), Token::Eof);
+    }
+}
