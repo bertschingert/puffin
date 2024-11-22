@@ -167,8 +167,9 @@ mod tests {
             _ => false,
         }
     }
+
     #[test]
-    fn scan_numbers() {
+    fn numbers() {
         let mut p = ProgramState::new();
         let mut s = Scanner::new("1 2 123a ");
 
@@ -179,7 +180,7 @@ mod tests {
     }
 
     #[test]
-    fn scan_binary_operators() {
+    fn binary_operators() {
         let mut p = ProgramState::new();
         let mut s = Scanner::new("+ - */ >");
 
@@ -192,7 +193,7 @@ mod tests {
     }
 
     #[test]
-    fn scan_keywords() {
+    fn keywords() {
         let mut p = ProgramState::new();
         let mut s = Scanner::new("BEGIN begin END end print");
 
@@ -205,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    fn scan_attributes() {
+    fn attributes() {
         let mut p = ProgramState::new();
         let mut s = Scanner::new(".size .invalid");
 
@@ -215,7 +216,7 @@ mod tests {
     }
 
     #[test]
-    fn scan_identifiers() {
+    fn identifiers() {
         let mut p = ProgramState::new();
         let mut s = Scanner::new("id id2 id .size id2");
 
