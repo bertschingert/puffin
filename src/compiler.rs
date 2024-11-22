@@ -63,11 +63,12 @@ impl<'a> Compiler<'a> {
     }
 
     fn routine(&mut self) -> Routine {
-        let cond = Condition {
-            expr: self.expression(0),
+        let cond = match self.peek() {
+            Token::LeftBrace => None,
+            _ => Some(Condition {
+                expr: self.expression(0),
+            }),
         };
-
-        println!("{}", cond.expr);
 
         let action = match self.peek() {
             Token::LeftBrace => {
@@ -78,7 +79,7 @@ impl<'a> Compiler<'a> {
             tok => panic!("Unexpected token: {:?}", tok),
         };
 
-        Routine::new(Some(cond), action)
+        Routine::new(cond, action)
     }
 
     fn action(&mut self) -> Action {
