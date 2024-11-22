@@ -75,7 +75,9 @@ impl<'a> Scanner<'a> {
                     let a = &self.source[self.start..self.current + 1];
                     return match a {
                         "BEGIN" => Token::Begin,
+                        "begin" => Token::Begin,
                         "END" => Token::End,
+                        "end" => Token::End,
                         "print" => Token::Print,
                         a => Self::attribute_or_identifier(a, prog_state),
                     };
