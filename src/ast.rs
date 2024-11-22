@@ -1,5 +1,7 @@
 use std::os::unix::fs::MetadataExt;
 
+use crate::program_state::ProgramState;
+
 struct FileState {
     path: std::path::PathBuf,
     md: std::fs::Metadata,
@@ -27,10 +29,11 @@ pub struct Program {
     pub begin: Option<Action>,
     pub end: Option<Action>,
     pub routines: Vec<Routine>,
+    pub prog_state: ProgramState,
 }
 
 impl Program {
-    pub fn run(&self, path: &str) {
+    pub fn run(&mut self, path: &str) {
         let md = std::fs::metadata(&path).unwrap();
 
         self.begin();
@@ -49,7 +52,7 @@ impl Program {
     }
 
     // TODO: pull into own module
-    fn treewalk(&self, path: &str) {
+    fn treewalk(&mut self, path: &str) {
         let mut stack: Vec<std::path::PathBuf> = Vec::new();
         stack.push(path.into());
 
@@ -86,27 +89,31 @@ impl Program {
         }
     }
 
-    fn begin(&self) {
+    fn begin(&mut self) {
         if let Some(begin) = &self.begin {
-            begin.interpret(None);
+            begin.interpret(None, &mut self.prog_state);
         }
     }
 
-    fn end(&self) {
+    fn end(&mut self) {
         if let Some(end) = &self.end {
-            end.interpret(None);
+            end.interpret(None, &mut self.prog_state);
         }
     }
 
-    fn run_routines(&self, f: &FileState) {
+    fn run_routines(&mut self, f: &FileState) {
         for routine in self.routines.iter() {
             match &routine.cond {
                 Some(cond) => {
-                    if cond.expr.evaluate(Some(f)).is_truthy() {
-                        routine.action.interpret(Some(f));
+                    if cond
+                        .expr
+                        .evaluate(Some(f), &mut self.prog_state)
+                        .is_truthy()
+                    {
+                        routine.action.interpret(Some(f), &mut self.prog_state);
                     }
                 }
-                None => routine.action.interpret(Some(f)),
+                None => routine.action.interpret(Some(f), &mut self.prog_state),
             }
         }
     }
@@ -173,26 +180,29 @@ pub enum Statement {
 }
 
 impl Statement {
-    fn interpret(&self, f: Option<&FileState>) {
+    fn interpret(&self, f: Option<&FileState>, p: &mut ProgramState) {
         match self {
-            Statement::Assignment(_) => unimplemented!(),
-            Statement::Print(expr) => println!("{}", expr.evaluate(f)),
+            Statement::Assignment(a) => {
+                p.set_variable(a.id.id, a.val.evaluate(f, p).to_integer());
+            }
+            Statement::Print(expr) => println!("{}", expr.evaluate(f, p)),
         }
     }
 }
 
 pub struct Assignment {
-    id: Identifier,
-    val: Expression,
+    pub id: Identifier,
+    pub val: Expression,
 }
 
 pub struct Identifier {
-    id: String,
+    /// Index into variables vector.
+    pub id: usize,
 }
 
 impl Identifier {
-    fn evaluate(&self) -> Value {
-        Value::Integer(42)
+    fn evaluate(&self, p: &ProgramState) -> Value {
+        Value::Integer(p.get_variable(self.id))
     }
 }
 
@@ -210,9 +220,9 @@ impl Action {
         }
     }
 
-    fn interpret(&self, f: Option<&FileState>) {
+    fn interpret(&self, f: Option<&FileState>, p: &mut ProgramState) {
         match &self.statements {
-            Some(statements) => statements.iter().for_each(|s| s.interpret(f)),
+            Some(statements) => statements.iter().for_each(|s| s.interpret(f, p)),
             // Default action is to print filename:
             None => {
                 match f {
@@ -231,9 +241,9 @@ pub struct BinaryOp {
 }
 
 impl BinaryOp {
-    fn evaluate(&self, f: Option<&FileState>) -> Value {
-        let l = self.left.evaluate(f);
-        let r = self.right.evaluate(f);
+    fn evaluate(&self, f: Option<&FileState>, p: &ProgramState) -> Value {
+        let l = self.left.evaluate(f, p);
+        let r = self.right.evaluate(f, p);
 
         self.kind.evaluate(l, r)
     }
@@ -290,12 +300,12 @@ pub enum Expression {
 }
 
 impl Expression {
-    fn evaluate(&self, f: Option<&FileState>) -> Value {
+    fn evaluate(&self, f: Option<&FileState>, p: &ProgramState) -> Value {
         match self {
-            Expression::Bin(op) => op.evaluate(f),
+            Expression::Bin(op) => op.evaluate(f, p),
             Expression::Attr(attr) => attr.evaluate(f),
             Expression::Atom(v) => *v,
-            Expression::Id(id) => id.evaluate(),
+            Expression::Id(id) => id.evaluate(p),
         }
     }
 }

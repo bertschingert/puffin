@@ -1,10 +1,12 @@
 use crate::ast::*;
+use crate::program_state::ProgramState;
 use crate::scanner::*;
 
 pub struct Compiler<'a> {
     scanner: Scanner<'a>,
     current: Token,
     next: Token,
+    prog_state: ProgramState,
 }
 
 impl<'a> Compiler<'a> {
@@ -13,6 +15,7 @@ impl<'a> Compiler<'a> {
             scanner,
             current: Token::Error("uninitialized".to_string()),
             next: Token::Error("uninitialized".to_string()),
+            prog_state: ProgramState::new(),
         }
     }
 
@@ -43,6 +46,8 @@ impl<'a> Compiler<'a> {
             begin,
             end,
             routines,
+            // XXX: find a better way to move prog_state out...
+            prog_state: std::mem::replace(&mut self.prog_state, ProgramState::new()),
         }
     }
 
@@ -58,7 +63,10 @@ impl<'a> Compiler<'a> {
     }
 
     fn next(&mut self) -> &Token {
-        self.current = std::mem::replace(&mut self.next, self.scanner.next_token());
+        self.current = std::mem::replace(
+            &mut self.next,
+            self.scanner.next_token(&mut self.prog_state),
+        );
         &self.current
     }
 
@@ -83,14 +91,31 @@ impl<'a> Compiler<'a> {
     }
 
     fn action(&mut self) -> Action {
-        match self.next() {
-            Token::RightBrace => Action::new(None),
-            Token::Print => {
-                let expr = self.expression(0);
-                let action = Action::new(Some(Statement::Print(expr)));
+        match self.peek() {
+            Token::RightBrace => {
+                self.next();
+                Action::new(None)
+            }
+            _ => {
+                let action = Action::new(Some(self.statement()));
                 self.eat(Token::RightBrace);
                 action
             }
+        }
+    }
+
+    fn statement(&mut self) -> Statement {
+        match self.next() {
+            Token::Identifier(id) => {
+                let id = *id;
+                self.eat(Token::Equal);
+
+                Statement::Assignment(Assignment {
+                    id: Identifier { id },
+                    val: self.expression(0),
+                })
+            }
+            Token::Print => Statement::Print(self.expression(0)),
             tok => panic!("Unexpected token: {:?}", tok),
         }
     }
@@ -136,6 +161,7 @@ impl<'a> Compiler<'a> {
         let e = match next {
             Token::Value(v) => Expression::Atom(Value::Integer(*v)),
             Token::Attr(a) => Expression::Attr(*a),
+            Token::Identifier(id) => Expression::Id(Identifier { id: *id }),
             t => panic!("Unexpected token {:?}", t),
         };
         self.next();

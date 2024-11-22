@@ -1,4 +1,5 @@
 use crate::ast::*;
+use crate::program_state::ProgramState;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
@@ -11,7 +12,7 @@ pub enum Token {
     Value(u64),
     BinOp(OpKind),
     Attr(Attribute),
-    Identifier(String),
+    Identifier(usize),
     Eof,
     Error(String),
 }
@@ -24,7 +25,7 @@ pub struct Scanner<'a> {
 }
 
 impl<'a> Scanner<'a> {
-    pub fn new(source: &'a str) -> Scanner {
+    pub fn new(source: &'a str) -> Scanner<'a> {
         Scanner {
             source,
             chars: source.char_indices().peekable(),
@@ -33,7 +34,7 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    pub fn next_token(&mut self) -> Token {
+    pub fn next_token(&mut self, prog_state: &mut ProgramState) -> Token {
         self.skip_whitespace();
 
         let Some((ind, ch)) = self.chars.next() else {
@@ -57,13 +58,13 @@ impl<'a> Scanner<'a> {
             _ if ch.is_alphabetic() => {
                 self.start = ind;
                 self.current = ind;
-                self.word()
+                self.word(prog_state)
             }
             _ => self.error(&format!("Unexpected character: {}", ch)),
         }
     }
 
-    fn word(&mut self) -> Token {
+    fn word(&mut self, prog_state: &mut ProgramState) -> Token {
         loop {
             match self.chars.peek() {
                 Some((ind, ch)) if ch.is_alphanumeric() => {
@@ -76,10 +77,18 @@ impl<'a> Scanner<'a> {
                         "BEGIN" => Token::Begin,
                         "END" => Token::End,
                         "print" => Token::Print,
-                        a => attribute_or_identifier(a),
+                        a => Self::attribute_or_identifier(a, prog_state),
                     };
                 }
             }
+        }
+    }
+
+    fn attribute_or_identifier(s: &str, prog_state: &mut ProgramState) -> Token {
+        match s {
+            "size" => Token::Attr(Attribute::Size),
+            "owner" => Token::Attr(Attribute::Owner),
+            a => Token::Identifier(prog_state.add_variable(a)),
         }
     }
 
@@ -122,13 +131,5 @@ impl<'a> Scanner<'a> {
 
     fn error(&self, msg: &str) -> Token {
         Token::Error(msg.to_string())
-    }
-}
-
-fn attribute_or_identifier(s: &str) -> Token {
-    match s {
-        "size" => Token::Attr(Attribute::Size),
-        "owner" => Token::Attr(Attribute::Owner),
-        a => Token::Identifier(a.to_string()),
     }
 }
