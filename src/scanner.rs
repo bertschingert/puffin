@@ -50,6 +50,11 @@ impl<'a> Scanner<'a> {
             '/' => Token::BinOp(OpKind::Divide),
             '{' => Token::LeftBrace,
             '}' => Token::RightBrace,
+            '.' => {
+                self.start = ind;
+                self.current = ind;
+                self.attribute()
+            }
             _ if ch.is_numeric() => {
                 self.start = ind;
                 self.current = ind;
@@ -61,6 +66,26 @@ impl<'a> Scanner<'a> {
                 self.word(prog_state)
             }
             _ => self.error(&format!("Unexpected character: {}", ch)),
+        }
+    }
+
+    fn attribute(&mut self) -> Token {
+        loop {
+            match self.chars.peek() {
+                Some((ind, ch)) if ch.is_alphanumeric() => {
+                    self.current = *ind;
+                    self.chars.next();
+                }
+                _ => {
+                    let a = &self.source[self.start..self.current + 1];
+
+                    return match a {
+                        ".size" => Token::Attr(Attribute::Size),
+                        ".owner" => Token::Attr(Attribute::Owner),
+                        _ => Token::Error(format!("Unknown attribute '{a}'")),
+                    };
+                }
+            }
         }
     }
 
@@ -79,19 +104,15 @@ impl<'a> Scanner<'a> {
                         "END" => Token::End,
                         "end" => Token::End,
                         "print" => Token::Print,
-                        a => Self::attribute_or_identifier(a, prog_state),
+                        a => Self::identifier(a, prog_state),
                     };
                 }
             }
         }
     }
 
-    fn attribute_or_identifier(s: &str, prog_state: &mut ProgramState) -> Token {
-        match s {
-            "size" => Token::Attr(Attribute::Size),
-            "owner" => Token::Attr(Attribute::Owner),
-            a => Token::Identifier(prog_state.add_variable(a)),
-        }
+    fn identifier(s: &str, prog_state: &mut ProgramState) -> Token {
+        Token::Identifier(prog_state.add_variable(s))
     }
 
     fn number(&mut self) -> Token {
@@ -180,6 +201,29 @@ mod tests {
         assert_eq!(s.next_token(&mut p), Token::End);
         assert_eq!(s.next_token(&mut p), Token::End);
         assert_eq!(s.next_token(&mut p), Token::Print);
+        assert_eq!(s.next_token(&mut p), Token::Eof);
+    }
+
+    #[test]
+    fn scan_attributes() {
+        let mut p = ProgramState::new();
+        let mut s = Scanner::new(".size .invalid");
+
+        assert_eq!(s.next_token(&mut p), Token::Attr(Attribute::Size));
+        assert!(is_error_token(s.next_token(&mut p)));
+        assert_eq!(s.next_token(&mut p), Token::Eof);
+    }
+
+    #[test]
+    fn scan_identifiers() {
+        let mut p = ProgramState::new();
+        let mut s = Scanner::new("id id2 id .size id2");
+
+        assert_eq!(s.next_token(&mut p), Token::Identifier(0));
+        assert_eq!(s.next_token(&mut p), Token::Identifier(1));
+        assert_eq!(s.next_token(&mut p), Token::Identifier(0));
+        assert_eq!(s.next_token(&mut p), Token::Attr(Attribute::Size));
+        assert_eq!(s.next_token(&mut p), Token::Identifier(1));
         assert_eq!(s.next_token(&mut p), Token::Eof);
     }
 }
