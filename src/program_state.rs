@@ -1,12 +1,16 @@
-pub struct ProgramState {
+pub struct ProgramState<'a, T: std::io::Write> {
     /// Vector of values of variables
     vars: Vec<u64>,
+
+    /// Where to write output to, typically stdout
+    pub out: &'a mut T,
 }
 
-impl ProgramState {
-    pub fn new(num_vars: usize) -> Self {
+impl<'a, T: std::io::Write> ProgramState<'a, T> {
+    pub fn new(num_vars: usize, out: &'a mut T) -> Self {
         ProgramState {
-            vars: vec![0; num_vars]
+            vars: vec![0; num_vars],
+            out,
         }
     }
 

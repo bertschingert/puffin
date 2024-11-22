@@ -120,7 +120,6 @@ impl<'a> Scanner<'a> {
         Token::Identifier(self.add_variable(s))
     }
 
-
     fn add_variable(&mut self, new_var: &'a str) -> usize {
         *self.var_map.entry(new_var).or_insert_with(|| {
             self.num_vars += 1;

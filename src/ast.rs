@@ -25,14 +25,14 @@ impl Attribute {
     }
 }
 
-pub struct Program {
+pub struct Program<'a, T: std::io::Write> {
     pub begin: Option<Action>,
     pub end: Option<Action>,
     pub routines: Vec<Routine>,
-    pub prog_state: ProgramState,
+    pub prog_state: ProgramState<'a, T>,
 }
 
-impl Program {
+impl<'a, T: std::io::Write> Program<'a, T> {
     pub fn run(&mut self, path: &str) {
         let md = std::fs::metadata(&path).unwrap();
 
@@ -180,12 +180,14 @@ pub enum Statement {
 }
 
 impl Statement {
-    fn interpret(&self, f: Option<&FileState>, p: &mut ProgramState) {
+    fn interpret<T: std::io::Write>(&self, f: Option<&FileState>, p: &mut ProgramState<T>) {
         match self {
             Statement::Assignment(a) => {
                 p.set_variable(a.id.id, a.val.evaluate(f, p).to_integer());
             }
-            Statement::Print(expr) => println!("{}", expr.evaluate(f, p)),
+            Statement::Print(expr) => {
+                let _ = p.out.write(format!("{}\n", expr.evaluate(f, p)).as_bytes());
+            }
         }
     }
 }
@@ -201,7 +203,7 @@ pub struct Identifier {
 }
 
 impl Identifier {
-    fn evaluate(&self, p: &ProgramState) -> Value {
+    fn evaluate<T: std::io::Write>(&self, p: &ProgramState<T>) -> Value {
         Value::Integer(p.get_variable(self.id))
     }
 }
@@ -220,13 +222,15 @@ impl Action {
         }
     }
 
-    fn interpret(&self, f: Option<&FileState>, p: &mut ProgramState) {
+    fn interpret<T: std::io::Write>(&self, f: Option<&FileState>, p: &mut ProgramState<T>) {
         match &self.statements {
             Some(statements) => statements.iter().for_each(|s| s.interpret(f, p)),
             // Default action is to print filename:
             None => {
                 match f {
-                    Some(f) => println!("{}", f.path.display()),
+                    Some(f) => {
+                        let _ = p.out.write(&format!("{}\n", f.path.display()).as_bytes());
+                    }
                     None => {}
                 };
             }
@@ -241,7 +245,7 @@ pub struct BinaryOp {
 }
 
 impl BinaryOp {
-    fn evaluate(&self, f: Option<&FileState>, p: &ProgramState) -> Value {
+    fn evaluate<T: std::io::Write>(&self, f: Option<&FileState>, p: &ProgramState<T>) -> Value {
         let l = self.left.evaluate(f, p);
         let r = self.right.evaluate(f, p);
 
@@ -300,7 +304,7 @@ pub enum Expression {
 }
 
 impl Expression {
-    fn evaluate(&self, f: Option<&FileState>, p: &ProgramState) -> Value {
+    fn evaluate<T: std::io::Write>(&self, f: Option<&FileState>, p: &ProgramState<T>) -> Value {
         match self {
             Expression::Bin(op) => op.evaluate(f, p),
             Expression::Attr(attr) => attr.evaluate(f),

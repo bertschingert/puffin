@@ -17,7 +17,7 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    pub fn compile(&mut self) -> Program {
+    pub fn compile<'b, T: std::io::Write>(&mut self, out: &'b mut T) -> Program<'b, T> {
         self.next();
 
         let mut begin = None;
@@ -45,7 +45,7 @@ impl<'a> Compiler<'a> {
             end,
             routines,
             // XXX: find a better way to move prog_state out...
-            prog_state: ProgramState::new(self.scanner.num_vars()),
+            prog_state: ProgramState::new(self.scanner.num_vars(), out),
         }
     }
 
@@ -61,10 +61,7 @@ impl<'a> Compiler<'a> {
     }
 
     fn next(&mut self) -> &Token {
-        self.current = std::mem::replace(
-            &mut self.next,
-            self.scanner.next_token(),
-        );
+        self.current = std::mem::replace(&mut self.next, self.scanner.next_token());
         &self.current
     }
 
