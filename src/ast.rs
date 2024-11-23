@@ -33,7 +33,7 @@ pub struct Program<'a, T: std::io::Write> {
 }
 
 impl<'a, T: std::io::Write> Program<'a, T> {
-    pub fn run(&mut self, path: &str) {
+    pub fn run(&mut self, path: &std::path::Path) {
         let md = std::fs::metadata(&path).unwrap();
 
         self.begin();
@@ -52,7 +52,7 @@ impl<'a, T: std::io::Write> Program<'a, T> {
     }
 
     // TODO: pull into own module
-    fn treewalk(&mut self, path: &str) {
+    fn treewalk(&mut self, path: &std::path::Path) {
         let mut stack: Vec<std::path::PathBuf> = Vec::new();
         stack.push(path.into());
 

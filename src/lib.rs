@@ -8,7 +8,7 @@ pub mod test_libs;
 use crate::compiler::Compiler;
 use crate::scanner::Scanner;
 
-pub fn driver<T: std::io::Write>(path: &str, prog: &str, out: &mut T) {
+pub fn driver<T: std::io::Write>(path: &std::path::Path, prog: &str, out: &mut T) {
     let scanner = Scanner::new(&prog);
     let mut comp = Compiler::new(scanner);
     let mut prog = comp.compile(out);

@@ -1,3 +1,5 @@
+use std::os::unix::ffi::OsStrExt;
+
 use std::path::{Path, PathBuf};
 
 const TEST_DIR: &str = "puffin_tests";
@@ -5,9 +7,6 @@ const TEST_DIR: &str = "puffin_tests";
 pub struct TestState<'a> {
     /// The subdirectory that the test is to be performed in, based on the name of the test.
     test_subdir: &'a str,
-
-    /// The original CWD of the process, so that it can be restored after the test finishes.
-    original_cwd: PathBuf,
 }
 
 impl<'a> TestState<'a> {
@@ -22,19 +21,22 @@ impl<'a> TestState<'a> {
             e => e?,
         };
 
-        let original_cwd = std::env::current_dir()?;
+        Ok(TestState { test_subdir })
+    }
 
-        std::env::set_current_dir(&subdir)?;
+    /// Get a PathBuf for a file within the test subdirectory.
+    pub fn get_path(&self, filename: &str) -> PathBuf {
+        std::path::PathBuf::from(TEST_DIR)
+            .join(self.test_subdir)
+            .join(filename)
+    }
 
-        Ok(TestState {
-            test_subdir,
-            original_cwd,
-        })
+    /// Get a PathBuf for the subdirectory that a test should use.
+    pub fn test_subdir(&self) -> PathBuf {
+        std::path::PathBuf::from(TEST_DIR).join(self.test_subdir)
     }
 
     pub fn cleanup(&self) -> std::io::Result<()> {
-        std::env::set_current_dir(&self.original_cwd)?;
-
         let subdir = PathBuf::from(TEST_DIR).join(self.test_subdir);
 
         fn remove_recursive(path: &Path) -> std::io::Result<()> {
@@ -63,6 +65,13 @@ impl Buffer {
     pub fn new() -> Self {
         Buffer { data: Vec::new() }
     }
+
+    pub fn trim_newline(&mut self) {
+        match self.data.pop() {
+            Some(b'\n') => {}
+            ch => panic!("Expected newline, got {:?}", ch),
+        }
+    }
 }
 
 impl std::io::Write for Buffer {
@@ -87,5 +96,11 @@ impl std::fmt::Debug for Buffer {
 impl PartialEq<&str> for Buffer {
     fn eq(&self, other: &&str) -> bool {
         self.data == other.as_bytes()
+    }
+}
+
+impl PartialEq<&PathBuf> for Buffer {
+    fn eq(&self, other: &&PathBuf) -> bool {
+        self.data == other.as_os_str().as_bytes()
     }
 }
