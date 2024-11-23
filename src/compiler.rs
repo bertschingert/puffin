@@ -6,7 +6,6 @@ pub struct Compiler<'a> {
     scanner: Scanner<'a>,
     current: Token,
     next: Token,
-    prog_state: ProgramState,
 }
 
 impl<'a> Compiler<'a> {
@@ -15,7 +14,6 @@ impl<'a> Compiler<'a> {
             scanner,
             current: Token::Error("uninitialized".to_string()),
             next: Token::Error("uninitialized".to_string()),
-            prog_state: ProgramState::new(),
         }
     }
 
@@ -47,7 +45,7 @@ impl<'a> Compiler<'a> {
             end,
             routines,
             // XXX: find a better way to move prog_state out...
-            prog_state: std::mem::replace(&mut self.prog_state, ProgramState::new()),
+            prog_state: ProgramState::new(self.scanner.num_vars()),
         }
     }
 
@@ -65,7 +63,7 @@ impl<'a> Compiler<'a> {
     fn next(&mut self) -> &Token {
         self.current = std::mem::replace(
             &mut self.next,
-            self.scanner.next_token(&mut self.prog_state),
+            self.scanner.next_token(),
         );
         &self.current
     }

@@ -1,5 +1,6 @@
+use std::collections::HashMap;
+
 use crate::ast::*;
-use crate::program_state::ProgramState;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
@@ -22,6 +23,8 @@ pub struct Scanner<'a> {
     chars: std::iter::Peekable<std::str::CharIndices<'a>>,
     start: usize,
     current: usize,
+    num_vars: usize,
+    var_map: HashMap<&'a str, usize>,
 }
 
 impl<'a> Scanner<'a> {
@@ -31,10 +34,12 @@ impl<'a> Scanner<'a> {
             chars: source.char_indices().peekable(),
             start: 0,
             current: 0,
+            num_vars: 0,
+            var_map: HashMap::new(),
         }
     }
 
-    pub fn next_token(&mut self, prog_state: &mut ProgramState) -> Token {
+    pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
 
         let Some((ind, ch)) = self.chars.next() else {
@@ -63,7 +68,7 @@ impl<'a> Scanner<'a> {
             _ if ch.is_alphabetic() => {
                 self.start = ind;
                 self.current = ind;
-                self.word(prog_state)
+                self.word()
             }
             _ => self.error(&format!("Unexpected character: {}", ch)),
         }
@@ -89,7 +94,7 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn word(&mut self, prog_state: &mut ProgramState) -> Token {
+    fn word(&mut self) -> Token {
         loop {
             match self.chars.peek() {
                 Some((ind, ch)) if ch.is_alphanumeric() => {
@@ -104,15 +109,23 @@ impl<'a> Scanner<'a> {
                         "END" => Token::End,
                         "end" => Token::End,
                         "print" => Token::Print,
-                        a => Self::identifier(a, prog_state),
+                        a => self.identifier(a),
                     };
                 }
             }
         }
     }
 
-    fn identifier(s: &str, prog_state: &mut ProgramState) -> Token {
-        Token::Identifier(prog_state.add_variable(s))
+    fn identifier(&mut self, s: &'a str) -> Token {
+        Token::Identifier(self.add_variable(s))
+    }
+
+
+    fn add_variable(&mut self, new_var: &'a str) -> usize {
+        *self.var_map.entry(new_var).or_insert_with(|| {
+            self.num_vars += 1;
+            self.num_vars - 1
+        })
     }
 
     fn number(&mut self) -> Token {
@@ -155,6 +168,10 @@ impl<'a> Scanner<'a> {
     fn error(&self, msg: &str) -> Token {
         Token::Error(msg.to_string())
     }
+
+    pub fn num_vars(&self) -> usize {
+        self.num_vars
+    }
 }
 
 #[cfg(test)]
@@ -170,61 +187,56 @@ mod tests {
 
     #[test]
     fn numbers() {
-        let mut p = ProgramState::new();
         let mut s = Scanner::new("1 2 123a ");
 
-        assert_eq!(s.next_token(&mut p), Token::Value(1));
-        assert_eq!(s.next_token(&mut p), Token::Value(2));
-        assert!(is_error_token(s.next_token(&mut p)));
-        assert_eq!(s.next_token(&mut p), Token::Eof);
+        assert_eq!(s.next_token(), Token::Value(1));
+        assert_eq!(s.next_token(), Token::Value(2));
+        assert!(is_error_token(s.next_token()));
+        assert_eq!(s.next_token(), Token::Eof);
     }
 
     #[test]
     fn binary_operators() {
-        let mut p = ProgramState::new();
         let mut s = Scanner::new("+ - */ >");
 
-        assert_eq!(s.next_token(&mut p), Token::BinOp(OpKind::Plus));
-        assert_eq!(s.next_token(&mut p), Token::BinOp(OpKind::Minus));
-        assert_eq!(s.next_token(&mut p), Token::BinOp(OpKind::Multiply));
-        assert_eq!(s.next_token(&mut p), Token::BinOp(OpKind::Divide));
-        assert_eq!(s.next_token(&mut p), Token::BinOp(OpKind::Greater));
-        assert_eq!(s.next_token(&mut p), Token::Eof);
+        assert_eq!(s.next_token(), Token::BinOp(OpKind::Plus));
+        assert_eq!(s.next_token(), Token::BinOp(OpKind::Minus));
+        assert_eq!(s.next_token(), Token::BinOp(OpKind::Multiply));
+        assert_eq!(s.next_token(), Token::BinOp(OpKind::Divide));
+        assert_eq!(s.next_token(), Token::BinOp(OpKind::Greater));
+        assert_eq!(s.next_token(), Token::Eof);
     }
 
     #[test]
     fn keywords() {
-        let mut p = ProgramState::new();
         let mut s = Scanner::new("BEGIN begin END end print");
 
-        assert_eq!(s.next_token(&mut p), Token::Begin);
-        assert_eq!(s.next_token(&mut p), Token::Begin);
-        assert_eq!(s.next_token(&mut p), Token::End);
-        assert_eq!(s.next_token(&mut p), Token::End);
-        assert_eq!(s.next_token(&mut p), Token::Print);
-        assert_eq!(s.next_token(&mut p), Token::Eof);
+        assert_eq!(s.next_token(), Token::Begin);
+        assert_eq!(s.next_token(), Token::Begin);
+        assert_eq!(s.next_token(), Token::End);
+        assert_eq!(s.next_token(), Token::End);
+        assert_eq!(s.next_token(), Token::Print);
+        assert_eq!(s.next_token(), Token::Eof);
     }
 
     #[test]
     fn attributes() {
-        let mut p = ProgramState::new();
         let mut s = Scanner::new(".size .invalid");
 
-        assert_eq!(s.next_token(&mut p), Token::Attr(Attribute::Size));
-        assert!(is_error_token(s.next_token(&mut p)));
-        assert_eq!(s.next_token(&mut p), Token::Eof);
+        assert_eq!(s.next_token(), Token::Attr(Attribute::Size));
+        assert!(is_error_token(s.next_token()));
+        assert_eq!(s.next_token(), Token::Eof);
     }
 
     #[test]
     fn identifiers() {
-        let mut p = ProgramState::new();
         let mut s = Scanner::new("id id2 id .size id2");
 
-        assert_eq!(s.next_token(&mut p), Token::Identifier(0));
-        assert_eq!(s.next_token(&mut p), Token::Identifier(1));
-        assert_eq!(s.next_token(&mut p), Token::Identifier(0));
-        assert_eq!(s.next_token(&mut p), Token::Attr(Attribute::Size));
-        assert_eq!(s.next_token(&mut p), Token::Identifier(1));
-        assert_eq!(s.next_token(&mut p), Token::Eof);
+        assert_eq!(s.next_token(), Token::Identifier(0));
+        assert_eq!(s.next_token(), Token::Identifier(1));
+        assert_eq!(s.next_token(), Token::Identifier(0));
+        assert_eq!(s.next_token(), Token::Attr(Attribute::Size));
+        assert_eq!(s.next_token(), Token::Identifier(1));
+        assert_eq!(s.next_token(), Token::Eof);
     }
 }
