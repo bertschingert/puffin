@@ -3,6 +3,8 @@ pub mod compiler;
 pub mod program_state;
 pub mod scanner;
 
+pub mod test_libs;
+
 use crate::compiler::Compiler;
 use crate::scanner::Scanner;
 

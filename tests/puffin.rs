@@ -1,24 +1,20 @@
-fn setup() {
-    std::fs::create_dir("puffin_tests");
-}
-
-fn cleanup() {
-    std::fs::remove_dir("puffin_tests");
-}
+use puffin::test_libs::{cleanup, setup, Buffer};
 
 #[test]
-fn integration_test() {
-    setup();
+fn empty_program() {
+    assert!(setup("empty_program").is_ok());
 
-    std::fs::File::create("puffin_tests/hey");
+    let path = std::path::PathBuf::from("hey");
 
-    let path = "puffin_tests";
+    std::fs::File::create(path);
+
+    let path = ".";
     let prog = "{ }";
 
-    let mut buf: Vec<u8> = Vec::new();
+    let mut buf = Buffer::new();
     puffin::driver(path, prog, &mut buf);
 
-    assert_eq!(buf, "puffin_tests/hey\n".as_bytes());
+    assert_eq!(buf, "./hey\n");
 
     cleanup();
 }
