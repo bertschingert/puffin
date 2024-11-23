@@ -1,8 +1,9 @@
-use puffin::test_libs::{cleanup, setup, Buffer};
+use puffin::test_libs::{Buffer, TestState};
 
 #[test]
 fn empty_program() {
-    assert!(setup("empty_program").is_ok());
+    let name = "empty_program";
+    let state = TestState::setup(name).unwrap();
 
     let path = std::path::PathBuf::from("hey");
 
@@ -16,5 +17,5 @@ fn empty_program() {
 
     assert_eq!(buf, "./hey\n");
 
-    cleanup();
+    assert!(state.cleanup().is_ok());
 }
