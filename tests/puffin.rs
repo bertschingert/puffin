@@ -5,9 +5,7 @@ fn empty_program() {
     let name = "empty_program";
     let state = TestState::setup(name).unwrap();
 
-    let path = state.get_path("hey");
-
-    std::fs::File::create(&path);
+    let path = state.create_file("hey", None).unwrap();
 
     let dir = state.test_subdir();
     let prog = "{ }";
@@ -21,19 +19,18 @@ fn empty_program() {
     assert!(state.cleanup().is_ok());
 }
 
-fn print_statements() {
+#[test]
+fn print_statements_1() {
     let name = "print_statements";
     let state = TestState::setup(name).unwrap();
 
-    let path = state.get_path("hey");
-
-    std::fs::File::create(&path);
+    let _ = state.create_file("hey", None).unwrap();
 
     let dir = state.test_subdir();
     let prog = "{ print 1 } end {print 2 }";
 
     let mut buf = Buffer::new();
-    puffin::driver(&path, prog, &mut buf);
+    puffin::driver(&dir, prog, &mut buf);
 
     assert_eq!(buf, "1\n2\n");
 

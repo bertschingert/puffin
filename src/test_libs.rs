@@ -36,6 +36,15 @@ impl<'a> TestState<'a> {
         std::path::PathBuf::from(TEST_DIR).join(self.test_subdir)
     }
 
+    pub fn create_file(
+        &self,
+        filename: &str,
+        _metadata: Option<Metadata>,
+    ) -> std::io::Result<PathBuf> {
+        let path = self.get_path(filename);
+        std::fs::File::create(&path).map(|_| path)
+    }
+
     pub fn cleanup(&self) -> std::io::Result<()> {
         let subdir = PathBuf::from(TEST_DIR).join(self.test_subdir);
 
@@ -55,6 +64,10 @@ impl<'a> TestState<'a> {
 
         remove_recursive(&subdir)
     }
+}
+
+pub struct Metadata {
+    pub size: usize,
 }
 
 pub struct Buffer {
