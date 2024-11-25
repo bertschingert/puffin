@@ -1,3 +1,4 @@
+use std::io::BufRead;
 use std::os::unix::ffi::OsStrExt;
 
 use std::path::{Path, PathBuf};
@@ -97,6 +98,17 @@ impl Buffer {
         match self.data.pop() {
             Some(b'\n') => {}
             ch => panic!("Expected newline, got {:?}", ch),
+        }
+    }
+
+    /// Get the last line of a buffer.
+    ///
+    /// Returns OsString rather than String as this is typically compared to a PathBuf, which holds
+    /// an OsString.
+    pub fn last_line(&self) -> std::ffi::OsString {
+        match self.data.lines().last() {
+            Some(line) => line.unwrap().into(),
+            None => panic!("Expected at least one line in string."),
         }
     }
 }

@@ -13,8 +13,7 @@ fn empty_program() {
     let mut buf = Buffer::new();
     puffin::driver(&dir, prog, &mut buf);
 
-    buf.trim_newline();
-    assert_eq!(buf, &path);
+    assert_eq!(&buf.last_line(), &path);
 
     assert!(state.cleanup().is_ok());
 }
@@ -32,7 +31,7 @@ fn print_statements_1() {
     let mut buf = Buffer::new();
     puffin::driver(&dir, prog, &mut buf);
 
-    assert_eq!(buf, "1\n2\n");
+    assert_eq!(buf, "1\n1\n2\n");
 
     assert!(state.cleanup().is_ok());
 }
@@ -42,15 +41,14 @@ fn print_statements_2() {
     let name = "print_statements_2";
     let state = TestState::setup(name).unwrap();
 
-    let _ = state
+    let path = state
         .create_file("hey", Some(Metadata { size: 42 }))
         .unwrap();
 
-    let dir = state.test_subdir();
     let prog = "{ tot = tot + .size } end {print tot }";
 
     let mut buf = Buffer::new();
-    puffin::driver(&dir, prog, &mut buf);
+    puffin::driver(&path, prog, &mut buf);
 
     buf.trim_newline();
     assert_eq!(buf, "42");

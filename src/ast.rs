@@ -39,7 +39,7 @@ impl<'a, T: std::io::Write> Program<'a, T> {
         self.begin();
 
         if md.is_dir() {
-            self.treewalk(path);
+            self.treewalk(path, md);
         } else {
             let file_state = FileState {
                 path: path.into(),
@@ -52,7 +52,13 @@ impl<'a, T: std::io::Write> Program<'a, T> {
     }
 
     // TODO: pull into own module
-    fn treewalk(&mut self, path: &std::path::Path) {
+    fn treewalk(&mut self, path: &std::path::Path, md: std::fs::Metadata) {
+        let f = FileState {
+            path: path.to_path_buf(),
+            md,
+        };
+        self.run_routines(&f);
+
         let mut stack: Vec<std::path::PathBuf> = Vec::new();
         stack.push(path.into());
 
