@@ -27,6 +27,26 @@ impl<'a> TestState<'a> {
         Ok(TestState { test_subdir })
     }
 
+    pub fn cleanup(&self) -> std::io::Result<()> {
+        let subdir = PathBuf::from(TEST_DIR).join(self.test_subdir);
+
+        fn remove_recursive(path: &Path) -> std::io::Result<()> {
+            for ent in std::fs::read_dir(path).unwrap() {
+                let ent = ent?;
+                let ty = ent.file_type()?;
+                if ty.is_dir() {
+                    remove_recursive(&ent.path())?;
+                } else {
+                    std::fs::remove_file(ent.path())?;
+                }
+            }
+
+            std::fs::remove_dir(path)
+        }
+
+        remove_recursive(&subdir)
+    }
+
     /// Get a PathBuf for a file within the test subdirectory.
     pub fn get_path(&self, filename: &str) -> PathBuf {
         std::path::PathBuf::from(TEST_DIR)
@@ -57,26 +77,6 @@ impl<'a> TestState<'a> {
     fn create_file_md(&self, path: &Path, metadata: Metadata) -> Result<()> {
         std::fs::File::create(&path)?;
         Ok(nix::unistd::truncate(path, metadata.size)?)
-    }
-
-    pub fn cleanup(&self) -> std::io::Result<()> {
-        let subdir = PathBuf::from(TEST_DIR).join(self.test_subdir);
-
-        fn remove_recursive(path: &Path) -> std::io::Result<()> {
-            for ent in std::fs::read_dir(path).unwrap() {
-                let ent = ent?;
-                let ty = ent.file_type()?;
-                if ty.is_dir() {
-                    remove_recursive(&ent.path())?;
-                } else {
-                    std::fs::remove_file(ent.path())?;
-                }
-            }
-
-            std::fs::remove_dir(path)
-        }
-
-        remove_recursive(&subdir)
     }
 }
 
