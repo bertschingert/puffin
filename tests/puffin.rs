@@ -1,17 +1,22 @@
 use puffin::test_libs::*;
 
+enum ExpectedOutput<'a> {
+    String(&'a str),
+    Filename,
+}
+
 /// Create a test state for `test_name` that creates a single file with optionally supplied
 /// Metadata`md`.
 ///
 /// Then, runs `program` given that single file.
 ///
-/// If `expected_output` is supplied, then it is compared to the program output. Otherwise, if it
-/// is `None`, the expected output is the filename, so compare against that.
+/// If `expected_output` is a string, then it is compared to the program output. Otherwise,
+/// compare against the name of the created file.
 fn test_one_file_with_program(
     test_name: &str,
     md: Option<Metadata>,
     program: &str,
-    expected_output: Option<&str>,
+    expected_output: ExpectedOutput,
 ) {
     let state = TestState::setup(test_name).unwrap();
 
@@ -21,8 +26,8 @@ fn test_one_file_with_program(
     puffin::driver(&path, program, &mut buf);
 
     match expected_output {
-        Some(out) => assert_eq!(buf, out),
-        None => {
+        ExpectedOutput::String(out) => assert_eq!(buf, out),
+        ExpectedOutput::Filename => {
             buf.trim_newline();
             assert_eq!(buf, &path);
         }
@@ -55,7 +60,41 @@ fn size_equals() {
         "size_equals",
         Some(Metadata { size: 42 }),
         ".size == 42",
-        None,
+        ExpectedOutput::Filename,
+    );
+}
+
+#[test]
+fn size_greater() {
+    test_one_file_with_program(
+        "size_greater",
+        Some(Metadata { size: 42 }),
+        ".size > 42",
+        ExpectedOutput::String(""),
+    );
+
+    test_one_file_with_program(
+        "size_greater",
+        Some(Metadata { size: 42 }),
+        ".size > 41",
+        ExpectedOutput::Filename,
+    );
+}
+
+#[test]
+fn size_less() {
+    test_one_file_with_program(
+        "size_less",
+        Some(Metadata { size: 42 }),
+        ".size < 42",
+        ExpectedOutput::String(""),
+    );
+
+    test_one_file_with_program(
+        "size_less",
+        Some(Metadata { size: 42 }),
+        ".size < 43",
+        ExpectedOutput::Filename,
     );
 }
 
@@ -65,7 +104,7 @@ fn print_statements_1() {
         "print_statements_1",
         None,
         "{ print 1 } end {print 2 }",
-        Some("1\n2\n"),
+        ExpectedOutput::String("1\n2\n"),
     );
 }
 
@@ -75,6 +114,6 @@ fn print_statements_2() {
         "print_statements_2",
         Some(Metadata { size: 42 }),
         "{ tot = tot + .size } end {print tot }",
-        Some("42\n"),
+        ExpectedOutput::String("42\n"),
     );
 }

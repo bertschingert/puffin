@@ -49,6 +49,7 @@ impl<'a> Scanner<'a> {
         match ch {
             '=' => self.oneplus_token('=', Token::BinOp(OpKind::EqualEqual), Token::Equal),
             '>' => Token::BinOp(OpKind::Greater),
+            '<' => Token::BinOp(OpKind::Less),
             '+' => Token::BinOp(OpKind::Plus),
             '-' => Token::BinOp(OpKind::Minus),
             '*' => Token::BinOp(OpKind::Multiply),

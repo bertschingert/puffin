@@ -270,6 +270,7 @@ impl BinaryOp {
 pub enum OpKind {
     EqualEqual,
     Greater,
+    Less,
     Plus,
     Minus,
     Multiply,
@@ -286,20 +287,19 @@ impl OpKind {
                     Value::Boolean(false)
                 }
             }
-            OpKind::Greater => {
-                let l = l.to_integer();
-                let r = r.to_integer();
-                if l > r {
-                    Value::Boolean(true)
-                } else {
-                    Value::Boolean(false)
-                }
-            }
+            OpKind::Greater => Self::integer_to_boolean_op(l, r, |l, r| l > r),
+            OpKind::Less => Self::integer_to_boolean_op(l, r, |l, r| l < r),
             OpKind::Plus => Self::integer_op(l, r, |l, r| l + r),
             OpKind::Minus => Self::integer_op(l, r, |l, r| l - r),
             OpKind::Multiply => Self::integer_op(l, r, |l, r| l * r),
             OpKind::Divide => Self::integer_op(l, r, |l, r| l / r),
         }
+    }
+
+    fn integer_to_boolean_op(l: Value, r: Value, f: fn(u64, u64) -> bool) -> Value {
+        let l = l.to_integer();
+        let r = r.to_integer();
+        Value::Boolean(f(l, r))
     }
 
     fn integer_op(l: Value, r: Value, f: fn(u64, u64) -> u64) -> Value {
@@ -341,6 +341,7 @@ impl std::fmt::Display for Expression {
                     match op.kind {
                         OpKind::EqualEqual => "==",
                         OpKind::Greater => ">",
+                        OpKind::Less => "<",
                         OpKind::Plus => "+",
                         OpKind::Minus => "-",
                         OpKind::Multiply => "*",

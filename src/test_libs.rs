@@ -97,7 +97,8 @@ impl Buffer {
     pub fn trim_newline(&mut self) {
         match self.data.pop() {
             Some(b'\n') => {}
-            ch => panic!("Expected newline, got {:?}", ch),
+            Some(ch) => panic!("Expected newline, got {:?}", ch),
+            None => {}
         }
     }
 

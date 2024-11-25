@@ -155,6 +155,7 @@ impl<'a> Compiler<'a> {
             OpKind::Plus => 2,
             OpKind::Minus => 2,
             OpKind::Greater => 1,
+            OpKind::Less => 1,
             OpKind::EqualEqual => 1,
         }
     }
