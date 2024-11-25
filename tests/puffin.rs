@@ -19,6 +19,26 @@ fn empty_program() {
 }
 
 #[test]
+fn size_equals() {
+    let name = "size_equals";
+    let state = TestState::setup(name).unwrap();
+
+    let path = state
+        .create_file("hey", Some(Metadata { size: 42 }))
+        .unwrap();
+
+    let prog = ".size == 42";
+
+    let mut buf = Buffer::new();
+    puffin::driver(&path, prog, &mut buf);
+
+    buf.trim_newline();
+    assert_eq!(buf, &path);
+
+    assert!(state.cleanup().is_ok());
+}
+
+#[test]
 fn print_statements_1() {
     let name = "print_statements_1";
     let state = TestState::setup(name).unwrap();

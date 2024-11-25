@@ -47,7 +47,7 @@ impl<'a> Scanner<'a> {
         };
 
         match ch {
-            '=' => Token::Equal,
+            '=' => self.oneplus_token('=', Token::BinOp(OpKind::EqualEqual), Token::Equal),
             '>' => Token::BinOp(OpKind::Greater),
             '+' => Token::BinOp(OpKind::Plus),
             '-' => Token::BinOp(OpKind::Minus),
@@ -71,6 +71,16 @@ impl<'a> Scanner<'a> {
                 self.word()
             }
             _ => self.error(&format!("Unexpected character: {}", ch)),
+        }
+    }
+
+    fn oneplus_token(&mut self, next_char: char, yes: Token, no: Token) -> Token {
+        match self.chars.peek() {
+            Some((_, ch)) if *ch == next_char => {
+                self.chars.next();
+                yes
+            }
+            _ => no,
         }
     }
 
@@ -196,13 +206,15 @@ mod tests {
 
     #[test]
     fn binary_operators() {
-        let mut s = Scanner::new("+ - */ >");
+        let mut s = Scanner::new("+ - */ > == =");
 
         assert_eq!(s.next_token(), Token::BinOp(OpKind::Plus));
         assert_eq!(s.next_token(), Token::BinOp(OpKind::Minus));
         assert_eq!(s.next_token(), Token::BinOp(OpKind::Multiply));
         assert_eq!(s.next_token(), Token::BinOp(OpKind::Divide));
         assert_eq!(s.next_token(), Token::BinOp(OpKind::Greater));
+        assert_eq!(s.next_token(), Token::BinOp(OpKind::EqualEqual));
+        assert_eq!(s.next_token(), Token::Equal);
         assert_eq!(s.next_token(), Token::Eof);
     }
 
