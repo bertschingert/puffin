@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 
 const TEST_DIR: &str = "puffin_tests";
 
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
 pub struct TestState<'a> {
     /// The subdirectory that the test is to be performed in, based on the name of the test.
     test_subdir: &'a str,
@@ -36,13 +38,24 @@ impl<'a> TestState<'a> {
         std::path::PathBuf::from(TEST_DIR).join(self.test_subdir)
     }
 
-    pub fn create_file(
-        &self,
-        filename: &str,
-        _metadata: Option<Metadata>,
-    ) -> std::io::Result<PathBuf> {
+    pub fn create_file(&self, filename: &str, metadata: Option<Metadata>) -> Result<PathBuf> {
         let path = self.get_path(filename);
-        std::fs::File::create(&path).map(|_| path)
+
+        match metadata {
+            Some(md) => {
+                self.create_file_md(&path, md)?;
+            }
+            None => {
+                std::fs::File::create(&path)?;
+            }
+        };
+
+        Ok(path)
+    }
+
+    fn create_file_md(&self, path: &Path, metadata: Metadata) -> Result<()> {
+        std::fs::File::create(&path)?;
+        Ok(nix::unistd::truncate(path, metadata.size)?)
     }
 
     pub fn cleanup(&self) -> std::io::Result<()> {
@@ -66,8 +79,9 @@ impl<'a> TestState<'a> {
     }
 }
 
+/// Metadata to set when creating test files.
 pub struct Metadata {
-    pub size: usize,
+    pub size: i64,
 }
 
 pub struct Buffer {
@@ -100,8 +114,8 @@ impl std::io::Write for Buffer {
 impl std::fmt::Debug for Buffer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match std::str::from_utf8(&self.data) {
-            Ok(s) => write!(f, "{s}"),
-            Err(_) => write!(f, "{:?}", self.data),
+            Ok(s) => write!(f, "\"{s}\""),
+            Err(_) => write!(f, "\"{:?}\"", self.data),
         }
     }
 }
