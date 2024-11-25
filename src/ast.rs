@@ -119,6 +119,7 @@ impl<'a, T: std::io::Write> Program<'a, T> {
     }
 }
 
+#[derive(Debug)]
 pub struct Routine {
     cond: Option<Condition>,
     action: Action,
@@ -130,6 +131,7 @@ impl Routine {
     }
 }
 
+#[derive(Debug)]
 pub struct Condition {
     pub expr: Expression,
 }
@@ -174,6 +176,7 @@ impl std::fmt::Display for Value {
     }
 }
 
+#[derive(Debug)]
 pub enum Statement {
     Assignment(Assignment),
     Print(Expression),
@@ -192,11 +195,13 @@ impl Statement {
     }
 }
 
+#[derive(Debug)]
 pub struct Assignment {
     pub id: Identifier,
     pub val: Expression,
 }
 
+#[derive(Debug)]
 pub struct Identifier {
     /// Index into variables vector.
     pub id: usize,
@@ -208,6 +213,7 @@ impl Identifier {
     }
 }
 
+#[derive(Debug)]
 pub struct Action {
     pub statements: Option<Vec<Statement>>,
 }
@@ -238,6 +244,7 @@ impl Action {
     }
 }
 
+#[derive(Debug)]
 pub struct BinaryOp {
     pub kind: OpKind,
     pub left: Box<Expression>,
@@ -296,6 +303,7 @@ impl OpKind {
     }
 }
 
+#[derive(Debug)]
 pub enum Expression {
     Bin(BinaryOp),
     Attr(Attribute),

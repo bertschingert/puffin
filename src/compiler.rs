@@ -40,6 +40,14 @@ impl<'a> Compiler<'a> {
             };
         }
 
+        // If no routines were provided in the input, then create a single default routine:
+        let routines = match routines.len() {
+            0 => {
+                vec![Routine::new(None, Action { statements: None })]
+            }
+            _ => routines,
+        };
+
         Program {
             begin,
             end,
