@@ -9,6 +9,8 @@ struct FileState {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Attribute {
+    Name,
+    Path,
     Size,
     Owner,
 }
@@ -17,6 +19,10 @@ impl Attribute {
     fn evaluate(&self, f: Option<&FileState>) -> Value {
         match f {
             Some(f) => match self {
+                Attribute::Name => {
+                    Value::String(f.path.file_name().unwrap().to_string_lossy().to_string())
+                }
+                Attribute::Path => Value::String(f.path.display().to_string()),
                 Attribute::Size => Value::Integer(f.md.size().try_into().unwrap()),
                 Attribute::Owner => Value::Integer(f.md.uid().into()),
             },

@@ -181,3 +181,22 @@ fn strings() {
         ExpectedOutput::String("hey\n"),
     );
 }
+
+#[test]
+fn print_paths() {
+    let state = TestState::setup("print_paths").unwrap();
+
+    let path = state.create_file(&format!("testfile"), None).unwrap();
+
+    let mut buf = Buffer::new();
+    puffin::driver(&path, "{ print .name }", &mut buf);
+    buf.trim_newline();
+    assert_eq!(buf, "testfile");
+
+    let mut buf = Buffer::new();
+    puffin::driver(&path, "{ print .path }", &mut buf);
+    buf.trim_newline();
+    assert_eq!(buf, &path);
+
+    assert!(state.cleanup().is_ok());
+}
