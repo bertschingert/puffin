@@ -113,11 +113,8 @@ impl<'a> Compiler<'a> {
                 let id = Identifier { id: *id };
                 let val = match self.next() {
                     Token::Equal => self.expression(0),
-                    Token::PlusEqual => Expression::Bin(BinaryOp {
-                        kind: OpKind::Plus,
-                        left: Box::new(Expression::Id(id)),
-                        right: Box::new(self.expression(0)),
-                    }),
+                    Token::PlusEqual => self.compound_assignment(id, Token::PlusEqual),
+                    Token::MinusEqual => self.compound_assignment(id, Token::MinusEqual),
                     tok => panic!("Unexpected token: {:?}", tok),
                 };
                 Statement::Assignment(Assignment { id, val })
@@ -125,6 +122,20 @@ impl<'a> Compiler<'a> {
             Token::Print => Statement::Print(self.expression(0)),
             tok => panic!("Unexpected token: {:?}", tok),
         }
+    }
+
+    fn compound_assignment(&mut self, id: Identifier, tok: Token) -> Expression {
+        let kind = match tok {
+            Token::PlusEqual => OpKind::Plus,
+            Token::MinusEqual => OpKind::Minus,
+            _ => unreachable!(),
+        };
+
+        Expression::Bin(BinaryOp {
+            kind,
+            left: Box::new(Expression::Id(id)),
+            right: Box::new(self.expression(0)),
+        })
     }
 
     fn expression(&mut self, min_precedence: u8) -> Expression {

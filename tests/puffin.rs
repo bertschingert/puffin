@@ -155,3 +155,13 @@ fn plus_equal() {
         ExpectedOutput::String("42\n"),
     );
 }
+
+#[test]
+fn minus_equal() {
+    test_one_file_with_program(
+        "minus_equal",
+        Some(Metadata { size: 42 }),
+        "{ tot -= .size } end {print tot }",
+        ExpectedOutput::String("-42\n"),
+    );
+}

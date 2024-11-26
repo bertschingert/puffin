@@ -8,10 +8,11 @@ pub enum Token {
     End,
     Equal,
     PlusEqual,
+    MinusEqual,
     LeftBrace,
     RightBrace,
     Print,
-    Value(u64),
+    Value(i64),
     BinOp(OpKind),
     Attr(Attribute),
     Identifier(usize),
@@ -60,7 +61,7 @@ impl<'a> Scanner<'a> {
                 Token::BinOp(OpKind::Less),
             ),
             '+' => self.oneplus_token('=', Token::PlusEqual, Token::BinOp(OpKind::Plus)),
-            '-' => Token::BinOp(OpKind::Minus),
+            '-' => self.oneplus_token('=', Token::MinusEqual, Token::BinOp(OpKind::Minus)),
             '*' => Token::BinOp(OpKind::Multiply),
             '/' => Token::BinOp(OpKind::Divide),
             '{' => Token::LeftBrace,
@@ -155,7 +156,7 @@ impl<'a> Scanner<'a> {
                     self.chars.next();
                 }
                 _ => {
-                    let num = match self.source[self.start..self.current + 1].parse::<u64>() {
+                    let num = match self.source[self.start..self.current + 1].parse::<i64>() {
                         Ok(num) => num,
                         Err(e) => {
                             return self.error(&format!(
@@ -225,6 +226,17 @@ mod tests {
         assert_eq!(s.next_token(), Token::BinOp(OpKind::Greater));
         assert_eq!(s.next_token(), Token::BinOp(OpKind::EqualEqual));
         assert_eq!(s.next_token(), Token::Equal);
+        assert_eq!(s.next_token(), Token::Eof);
+    }
+
+    #[test]
+    fn compound_assignment_operators() {
+        let mut s = Scanner::new("+ += - -=");
+
+        assert_eq!(s.next_token(), Token::BinOp(OpKind::Plus));
+        assert_eq!(s.next_token(), Token::PlusEqual);
+        assert_eq!(s.next_token(), Token::BinOp(OpKind::Minus));
+        assert_eq!(s.next_token(), Token::MinusEqual);
         assert_eq!(s.next_token(), Token::Eof);
     }
 

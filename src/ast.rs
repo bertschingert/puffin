@@ -17,8 +17,8 @@ impl Attribute {
     fn evaluate(&self, f: Option<&FileState>) -> Value {
         match f {
             Some(f) => match self {
-                Attribute::Size => Value::Integer(f.md.size()),
-                Attribute::Owner => Value::Integer(f.md.uid() as u64),
+                Attribute::Size => Value::Integer(f.md.size().try_into().unwrap()),
+                Attribute::Owner => Value::Integer(f.md.uid().into()),
             },
             None => panic!("Cannot evaluate attribute in BEGIN or END block"),
         }
@@ -144,7 +144,7 @@ pub struct Condition {
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Value {
-    Integer(u64),
+    Integer(i64),
     Boolean(bool),
 }
 
@@ -156,7 +156,7 @@ impl Value {
         }
     }
 
-    fn to_integer(self) -> u64 {
+    fn to_integer(self) -> i64 {
         match self {
             Value::Integer(i) => i,
             Value::Boolean(b) => {
@@ -300,13 +300,13 @@ impl OpKind {
         }
     }
 
-    fn integer_to_boolean_op(l: Value, r: Value, f: fn(u64, u64) -> bool) -> Value {
+    fn integer_to_boolean_op(l: Value, r: Value, f: fn(i64, i64) -> bool) -> Value {
         let l = l.to_integer();
         let r = r.to_integer();
         Value::Boolean(f(l, r))
     }
 
-    fn integer_op(l: Value, r: Value, f: fn(u64, u64) -> u64) -> Value {
+    fn integer_op(l: Value, r: Value, f: fn(i64, i64) -> i64) -> Value {
         let l = l.to_integer();
         let r = r.to_integer();
         Value::Integer(f(l, r))

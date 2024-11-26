@@ -1,6 +1,6 @@
 pub struct ProgramState<'a, T: std::io::Write> {
     /// Vector of values of variables
-    vars: Vec<u64>,
+    vars: Vec<i64>,
 
     /// Where to write output to, typically stdout
     pub out: &'a mut T,
@@ -14,11 +14,11 @@ impl<'a, T: std::io::Write> ProgramState<'a, T> {
         }
     }
 
-    pub fn get_variable(&self, var: usize) -> u64 {
+    pub fn get_variable(&self, var: usize) -> i64 {
         self.vars[var]
     }
 
-    pub fn set_variable(&mut self, var: usize, new_val: u64) {
+    pub fn set_variable(&mut self, var: usize, new_val: i64) {
         self.vars[var] = new_val;
     }
 }
