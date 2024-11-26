@@ -180,7 +180,7 @@ impl<'a> Compiler<'a> {
     fn factor(&mut self) -> Expression {
         let next = self.peek();
         let e = match next {
-            Token::Value(v) => Expression::Atom(Value::Integer(*v)),
+            Token::Value(v) => Expression::Atom(v.clone()),
             Token::Attr(a) => Expression::Attr(*a),
             Token::Identifier(id) => Expression::Id(Identifier { id: *id }),
             t => panic!("Unexpected token {:?}", t),

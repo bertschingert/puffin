@@ -142,9 +142,10 @@ pub struct Condition {
     pub expr: Expression,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum Value {
     Integer(i64),
+    String(String),
     Boolean(bool),
 }
 
@@ -152,6 +153,7 @@ impl Value {
     fn is_truthy(self) -> bool {
         match self {
             Value::Integer(i) => i != 0,
+            Value::String(s) => s != "",
             Value::Boolean(b) => b,
         }
     }
@@ -159,6 +161,7 @@ impl Value {
     fn to_integer(self) -> i64 {
         match self {
             Value::Integer(i) => i,
+            Value::String(s) => s.parse::<i64>().unwrap_or(0),
             Value::Boolean(b) => {
                 if b {
                     1
@@ -174,6 +177,7 @@ impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Integer(i) => write!(f, "{i}"),
+            Value::String(s) => write!(f, "{s}"),
             Value::Boolean(b) => match b {
                 true => write!(f, "True"),
                 false => write!(f, "False"),
@@ -326,7 +330,7 @@ impl Expression {
         match self {
             Expression::Bin(op) => op.evaluate(f, p),
             Expression::Attr(attr) => attr.evaluate(f),
-            Expression::Atom(v) => *v,
+            Expression::Atom(v) => v.clone(),
             Expression::Id(id) => id.evaluate(p),
         }
     }

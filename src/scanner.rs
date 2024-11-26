@@ -12,7 +12,7 @@ pub enum Token {
     LeftBrace,
     RightBrace,
     Print,
-    Value(i64),
+    Value(Value),
     BinOp(OpKind),
     Attr(Attribute),
     Identifier(usize),
@@ -66,6 +66,11 @@ impl<'a> Scanner<'a> {
             '/' => Token::BinOp(OpKind::Divide),
             '{' => Token::LeftBrace,
             '}' => Token::RightBrace,
+            '"' => {
+                self.start = ind + 1;
+                self.current = ind;
+                self.string()
+            }
             '.' => {
                 self.start = ind;
                 self.current = ind;
@@ -92,6 +97,25 @@ impl<'a> Scanner<'a> {
                 yes
             }
             _ => no,
+        }
+    }
+
+    fn string(&mut self) -> Token {
+        loop {
+            match self.chars.peek() {
+                Some((_, '"')) => {
+                    self.chars.next();
+                    let s = &self.source[self.start..self.current + 1];
+                    return Token::Value(Value::String(s.to_string()));
+                }
+                Some((ind, _)) => {
+                    self.current = *ind;
+                    self.chars.next();
+                }
+                None => {
+                    return Token::Error(format!("Unexpected end of input while parsing a string"))
+                }
+            }
         }
     }
 
@@ -166,7 +190,7 @@ impl<'a> Scanner<'a> {
                         }
                     };
 
-                    return Token::Value(num);
+                    return Token::Value(Value::Integer(num));
                 }
             }
         }
@@ -195,6 +219,7 @@ impl<'a> Scanner<'a> {
 }
 
 #[cfg(test)]
+#[rustfmt::skip]
 mod tests {
     use super::*;
 
@@ -209,8 +234,8 @@ mod tests {
     fn numbers() {
         let mut s = Scanner::new("1 2 123a ");
 
-        assert_eq!(s.next_token(), Token::Value(1));
-        assert_eq!(s.next_token(), Token::Value(2));
+        assert_eq!(s.next_token(), Token::Value(Value::Integer(1)));
+        assert_eq!(s.next_token(), Token::Value(Value::Integer(2)));
         assert!(is_error_token(s.next_token()));
         assert_eq!(s.next_token(), Token::Eof);
     }
@@ -270,6 +295,16 @@ mod tests {
         assert_eq!(s.next_token(), Token::Identifier(0));
         assert_eq!(s.next_token(), Token::Attr(Attribute::Size));
         assert_eq!(s.next_token(), Token::Identifier(1));
+        assert_eq!(s.next_token(), Token::Eof);
+    }
+
+    #[test]
+    fn strings() {
+        let mut s = Scanner::new("\"hey\" \"there\" \"error");
+
+        assert_eq!(s.next_token(), Token::Value(Value::String("hey".to_string())));
+        assert_eq!(s.next_token(), Token::Value(Value::String("there".to_string())));
+        assert!(is_error_token(s.next_token()));
         assert_eq!(s.next_token(), Token::Eof);
     }
 }

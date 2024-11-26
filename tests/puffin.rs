@@ -165,3 +165,19 @@ fn minus_equal() {
         ExpectedOutput::String("-42\n"),
     );
 }
+
+#[test]
+fn strings() {
+    // Empty string should evaluate False and not match the file:
+    test_one_file_with_program("strings", None, "\"\"", ExpectedOutput::String(""));
+
+    // String with contents should evaluate True and match the file:
+    test_one_file_with_program("strings", None, "\"a\"", ExpectedOutput::Filename);
+
+    test_one_file_with_program(
+        "strings",
+        None,
+        "\"a\" { print \"hey\" }",
+        ExpectedOutput::String("hey\n"),
+    );
+}
