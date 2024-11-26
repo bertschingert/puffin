@@ -207,7 +207,7 @@ pub struct Assignment {
     pub val: Expression,
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct Identifier {
     /// Index into variables vector.
     pub id: usize,

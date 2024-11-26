@@ -110,13 +110,17 @@ impl<'a> Compiler<'a> {
     fn statement(&mut self) -> Statement {
         match self.next() {
             Token::Identifier(id) => {
-                let id = *id;
-                self.eat(Token::Equal);
-
-                Statement::Assignment(Assignment {
-                    id: Identifier { id },
-                    val: self.expression(0),
-                })
+                let id = Identifier { id: *id };
+                let val = match self.next() {
+                    Token::Equal => self.expression(0),
+                    Token::PlusEqual => Expression::Bin(BinaryOp {
+                        kind: OpKind::Plus,
+                        left: Box::new(Expression::Id(id)),
+                        right: Box::new(self.expression(0)),
+                    }),
+                    tok => panic!("Unexpected token: {:?}", tok),
+                };
+                Statement::Assignment(Assignment { id, val })
             }
             Token::Print => Statement::Print(self.expression(0)),
             tok => panic!("Unexpected token: {:?}", tok),
