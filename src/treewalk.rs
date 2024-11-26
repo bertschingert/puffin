@@ -1,7 +1,12 @@
-use crate::ast::{FileState, Program};
+use crate::ast::{run_routines, FileState, Routine};
+use crate::program_state::ProgramState;
 
-pub fn treewalk<'a, T: std::io::Write>(f: FileState, p: &mut Program<'a, T>) {
-    p.run_routines(&f);
+pub fn treewalk<'a, T: std::io::Write>(
+    routines: &Vec<Routine>,
+    f: FileState,
+    p: &mut ProgramState<'a, T>,
+) {
+    run_routines(routines, &f, p);
 
     let mut stack: Vec<std::path::PathBuf> = Vec::new();
     stack.push(f.path);
@@ -34,7 +39,7 @@ pub fn treewalk<'a, T: std::io::Write>(f: FileState, p: &mut Program<'a, T>) {
                 path: ent.path(),
                 md,
             };
-            p.run_routines(&f);
+            run_routines(routines, &f, p);
         }
     }
 }

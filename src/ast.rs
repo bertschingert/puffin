@@ -50,13 +50,13 @@ impl<'a, T: std::io::Write> Program<'a, T> {
                 path: path.into(),
                 md,
             };
-            treewalk(f, self);
+            treewalk(&self.routines, f, &mut self.prog_state);
         } else {
             let file_state = FileState {
                 path: path.into(),
                 md,
             };
-            self.run_routines(&file_state);
+            run_routines(&self.routines, &file_state, &mut self.prog_state);
         }
 
         self.end();
@@ -73,23 +73,6 @@ impl<'a, T: std::io::Write> Program<'a, T> {
             end.interpret(None, &mut self.prog_state);
         }
     }
-
-    pub fn run_routines(&mut self, f: &FileState) {
-        for routine in self.routines.iter() {
-            match &routine.cond {
-                Some(cond) => {
-                    if cond
-                        .expr
-                        .evaluate(Some(f), &mut self.prog_state)
-                        .is_truthy()
-                    {
-                        routine.action.interpret(Some(f), &mut self.prog_state);
-                    }
-                }
-                None => routine.action.interpret(Some(f), &mut self.prog_state),
-            }
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -101,6 +84,23 @@ pub struct Routine {
 impl Routine {
     pub fn new(cond: Option<Condition>, action: Action) -> Self {
         Routine { cond, action }
+    }
+}
+
+pub fn run_routines<'a, T: std::io::Write>(
+    routines: &Vec<Routine>,
+    f: &FileState,
+    p: &mut ProgramState<'a, T>,
+) {
+    for routine in routines.iter() {
+        match &routine.cond {
+            Some(cond) => {
+                if cond.expr.evaluate(Some(f), p).is_truthy() {
+                    routine.action.interpret(Some(f), p);
+                }
+            }
+            None => routine.action.interpret(Some(f), p),
+        }
     }
 }
 
