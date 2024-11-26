@@ -1,10 +1,11 @@
 use std::os::unix::fs::MetadataExt;
 
 use crate::program_state::ProgramState;
+use crate::treewalk::treewalk;
 
-struct FileState {
-    path: std::path::PathBuf,
-    md: std::fs::Metadata,
+pub struct FileState {
+    pub path: std::path::PathBuf,
+    pub md: std::fs::Metadata,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -45,7 +46,11 @@ impl<'a, T: std::io::Write> Program<'a, T> {
         self.begin();
 
         if md.is_dir() {
-            self.treewalk(path, md);
+            let f = FileState {
+                path: path.into(),
+                md,
+            };
+            treewalk(f, self);
         } else {
             let file_state = FileState {
                 path: path.into(),
@@ -55,50 +60,6 @@ impl<'a, T: std::io::Write> Program<'a, T> {
         }
 
         self.end();
-    }
-
-    // TODO: pull into own module
-    fn treewalk(&mut self, path: &std::path::Path, md: std::fs::Metadata) {
-        let f = FileState {
-            path: path.to_path_buf(),
-            md,
-        };
-        self.run_routines(&f);
-
-        let mut stack: Vec<std::path::PathBuf> = Vec::new();
-        stack.push(path.into());
-
-        while let Some(path) = stack.pop() {
-            for ent in std::fs::read_dir(path).unwrap() {
-                let Ok(ent) = ent else {
-                    continue;
-                };
-
-                match ent.file_name().to_str() {
-                    Some(".") => continue,
-                    Some("..") => continue,
-                    _ => {}
-                };
-
-                let Ok(ty) = ent.file_type() else {
-                    continue;
-                };
-
-                if ty.is_dir() {
-                    stack.push(ent.path());
-                }
-
-                let Ok(md) = ent.metadata() else {
-                    continue;
-                };
-
-                let f = FileState {
-                    path: ent.path(),
-                    md,
-                };
-                self.run_routines(&f);
-            }
-        }
     }
 
     fn begin(&mut self) {
@@ -113,7 +74,7 @@ impl<'a, T: std::io::Write> Program<'a, T> {
         }
     }
 
-    fn run_routines(&mut self, f: &FileState) {
+    pub fn run_routines(&mut self, f: &FileState) {
         for routine in self.routines.iter() {
             match &routine.cond {
                 Some(cond) => {
