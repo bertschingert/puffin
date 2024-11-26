@@ -270,7 +270,9 @@ impl BinaryOp {
 pub enum OpKind {
     EqualEqual,
     Greater,
+    GreaterEqual,
     Less,
+    LessEqual,
     Plus,
     Minus,
     Multiply,
@@ -288,7 +290,9 @@ impl OpKind {
                 }
             }
             OpKind::Greater => Self::integer_to_boolean_op(l, r, |l, r| l > r),
+            OpKind::GreaterEqual => Self::integer_to_boolean_op(l, r, |l, r| l >= r),
             OpKind::Less => Self::integer_to_boolean_op(l, r, |l, r| l < r),
+            OpKind::LessEqual => Self::integer_to_boolean_op(l, r, |l, r| l <= r),
             OpKind::Plus => Self::integer_op(l, r, |l, r| l + r),
             OpKind::Minus => Self::integer_op(l, r, |l, r| l - r),
             OpKind::Multiply => Self::integer_op(l, r, |l, r| l * r),
@@ -341,7 +345,9 @@ impl std::fmt::Display for Expression {
                     match op.kind {
                         OpKind::EqualEqual => "==",
                         OpKind::Greater => ">",
+                        OpKind::GreaterEqual => ">=",
                         OpKind::Less => "<",
+                        OpKind::LessEqual => "<=",
                         OpKind::Plus => "+",
                         OpKind::Minus => "-",
                         OpKind::Multiply => "*",

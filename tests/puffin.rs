@@ -79,6 +79,20 @@ fn size_greater() {
         ".size > 41",
         ExpectedOutput::Filename,
     );
+
+    test_one_file_with_program(
+        "size_greater",
+        Some(Metadata { size: 42 }),
+        ".size >= 43",
+        ExpectedOutput::String(""),
+    );
+
+    test_one_file_with_program(
+        "size_greater",
+        Some(Metadata { size: 42 }),
+        ".size >= 42",
+        ExpectedOutput::Filename,
+    );
 }
 
 #[test]
@@ -94,6 +108,20 @@ fn size_less() {
         "size_less",
         Some(Metadata { size: 42 }),
         ".size < 43",
+        ExpectedOutput::Filename,
+    );
+
+    test_one_file_with_program(
+        "size_less",
+        Some(Metadata { size: 42 }),
+        ".size <= 41",
+        ExpectedOutput::String(""),
+    );
+
+    test_one_file_with_program(
+        "size_less",
+        Some(Metadata { size: 42 }),
+        ".size <= 42",
         ExpectedOutput::Filename,
     );
 }
