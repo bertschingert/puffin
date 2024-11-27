@@ -1,11 +1,34 @@
+use std::cell::OnceCell;
+
 use crate::program_state::ProgramState;
 use crate::treewalk::*;
 use crate::types::*;
 
 pub struct FileState {
     pub path: std::path::PathBuf,
-    pub md: std::fs::Metadata,
+    /// A file's metadata is checked lazily, so that the extra stat() syscall can be avoided if
+    /// the metadata is never queried.
+    md: OnceCell<std::io::Result<std::fs::Metadata>>,
 }
+
+impl FileState {
+    /// Construct a new FileState. If the metadata is already available, pass Some(md) to set it,
+    /// otherwise, None means it will be queried from the filesystem later if needed.
+    pub fn new(path: std::path::PathBuf, md: Option<std::fs::Metadata>) -> Self {
+        let md_cell = OnceCell::new();
+        match md {
+            Some(md) => md_cell.set(Ok(md)).unwrap(),
+            None => {}
+        };
+
+        FileState { path, md: md_cell }
+    }
+
+    pub fn get_metadata(&self) -> &Result<std::fs::Metadata, std::io::Error> {
+        self.md.get_or_init(|| std::fs::metadata(&self.path))
+    }
+}
+
 pub struct Program<'a, T: crate::SyncWrite> {
     pub begin: Option<Action>,
     pub end: Option<Action>,
@@ -22,17 +45,11 @@ impl<'a, T: crate::SyncWrite> Program<'a, T> {
         self.begin();
 
         if md.is_dir() {
-            let f = FileState {
-                path: path.into(),
-                md,
-            };
+            let f = FileState::new(path.into(), Some(md));
             treewalk(args, &self.routines, f, &self.prog_state);
         } else {
-            let file_state = FileState {
-                path: path.into(),
-                md,
-            };
-            run_routines(&self.routines, &file_state, &self.prog_state);
+            let f = FileState::new(path.into(), Some(md));
+            run_routines(&self.routines, &f, &self.prog_state);
         }
 
         self.end();

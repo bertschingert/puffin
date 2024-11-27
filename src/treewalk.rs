@@ -47,14 +47,7 @@ fn treewalk_single_threaded<'a, T: crate::SyncWrite>(
                 stack.push(ent.path());
             }
 
-            let Ok(md) = ent.metadata() else {
-                continue;
-            };
-
-            let f = FileState {
-                path: ent.path(),
-                md,
-            };
+            let f = FileState::new(ent.path(), None);
             run_routines(routines, &f, p);
         }
     }
@@ -145,14 +138,7 @@ fn process_directory<T: crate::SyncWrite>(path: &Path, w: &Worker<PathBuf>, stat
             _ => {}
         };
 
-        let Ok(md) = ent.metadata() else {
-            continue;
-        };
-
-        let f = FileState {
-            path: ent.path(),
-            md,
-        };
+        let f = FileState::new(ent.path(), None);
 
         run_routines(state.routines, &f, state.prog_state);
 
