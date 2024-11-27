@@ -1,4 +1,5 @@
 use puffin::test_libs::*;
+use puffin::Args;
 
 enum ExpectedOutput<'a> {
     String(&'a str),
@@ -15,15 +16,21 @@ enum ExpectedOutput<'a> {
 fn test_one_file_with_program(
     test_name: &str,
     md: Option<Metadata>,
-    program: &str,
+    prog: &str,
     expected_output: ExpectedOutput,
 ) {
     let state = TestState::setup(test_name).unwrap();
 
     let path = state.create_file(&format!("{test_name}-file"), md).unwrap();
 
+    let args = Args {
+        path: path.clone(),
+        prog: prog.to_string(),
+        n_threads: 1,
+    };
+
     let mut buf = Buffer::new();
-    puffin::driver(&path, program, &mut buf);
+    puffin::driver(&args, &mut buf);
 
     match expected_output {
         ExpectedOutput::String(out) => assert_eq!(buf, out),
@@ -46,8 +53,14 @@ fn empty_program() {
     let dir = state.test_subdir();
     let prog = "{ }";
 
+    let args = Args {
+        path: dir,
+        prog: prog.to_string(),
+        n_threads: 1,
+    };
+
     let mut buf = Buffer::new();
-    puffin::driver(&dir, prog, &mut buf);
+    puffin::driver(&args, &mut buf);
 
     assert_eq!(&buf.last_line(), &path);
 
@@ -188,13 +201,25 @@ fn print_paths() {
 
     let path = state.create_file(&format!("testfile"), None).unwrap();
 
+    let args = Args {
+        path: path.clone(),
+        prog: "{ print .name }".to_string(),
+        n_threads: 1,
+    };
+
     let mut buf = Buffer::new();
-    puffin::driver(&path, "{ print .name }", &mut buf);
+    puffin::driver(&args, &mut buf);
     buf.trim_newline();
     assert_eq!(buf, "testfile");
 
+    let args = Args {
+        path: path.clone(),
+        prog: "{ print .path }".to_string(),
+        n_threads: 1,
+    };
+
     let mut buf = Buffer::new();
-    puffin::driver(&path, "{ print .path }", &mut buf);
+    puffin::driver(&args, &mut buf);
     buf.trim_newline();
     assert_eq!(buf, &path);
 

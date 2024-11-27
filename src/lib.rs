@@ -12,12 +12,18 @@ use std::io::Write;
 use crate::compiler::Compiler;
 use crate::scanner::Scanner;
 
-pub fn driver<T: crate::SyncWrite>(path: &std::path::Path, prog: &str, out: &mut T) {
-    let scanner = Scanner::new(&prog);
+pub struct Args {
+    pub path: std::path::PathBuf,
+    pub prog: String,
+    pub n_threads: usize,
+}
+
+pub fn driver<T: crate::SyncWrite>(args: &crate::Args, out: &mut T) {
+    let scanner = Scanner::new(&args.prog);
     let mut comp = Compiler::new(scanner);
     let prog = comp.compile(out);
 
-    prog.run(&path);
+    prog.run(args);
 }
 
 // Like std::io::Write but it requires that the writer be Sync.

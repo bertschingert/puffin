@@ -14,8 +14,10 @@ pub struct Program<'a, T: crate::SyncWrite> {
 }
 
 impl<'a, T: crate::SyncWrite> Program<'a, T> {
-    pub fn run(&'a self, path: &std::path::Path) {
-        let md = std::fs::metadata(&path).unwrap();
+    pub fn run(&'a self, args: &crate::Args) {
+        let path = &args.path;
+
+        let md = std::fs::metadata(path).unwrap();
 
         self.begin();
 

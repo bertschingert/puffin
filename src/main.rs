@@ -1,20 +1,40 @@
+use clap::Parser;
+
+use puffin::Args;
+
+#[derive(Parser)]
+struct RawArgs {
+    /// The root to start traversing from.
+    path: Option<String>,
+
+    /// The program to run.
+    prog: Option<String>,
+
+    /// Number of threads.
+    #[arg(short = 'j', long, default_value_t = 4)]
+    n_threads: usize,
+}
+
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    let (path, prog) = match args.len() {
-        // If no arguments are provided, run the default program on the CWD:
-        1 => (".", ""),
-        // If only one argument is provided, it's ambiguous if it's a path or a program.
-        // TODO: Find a good way to "intelligently" guess whether the argument should be
-        // interpreted as a path or program?
-        2 => usage(),
-        // If two arguments are provided, they are the path and the program:
-        3 => (args[1].as_str(), args[2].as_str()),
-        _ => usage(),
+    let raw_args = RawArgs::parse();
+
+    let (path, prog) = match raw_args.path {
+        Some(ref path) => match raw_args.prog {
+            Some(ref prog) => (path.as_str(), prog.as_str()),
+            None => usage(),
+        },
+        None => (".", ""),
     };
 
     let path = std::path::PathBuf::from(path);
 
-    puffin::driver(&path, &prog, &mut std::io::stdout());
+    let args = crate::Args {
+        path,
+        prog: prog.to_string(),
+        n_threads: raw_args.n_threads,
+    };
+
+    puffin::driver(&args, &mut std::io::stdout());
 }
 
 fn usage() -> ! {
