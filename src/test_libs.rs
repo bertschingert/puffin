@@ -1,5 +1,6 @@
-use std::io::BufRead;
+use std::io::{BufRead, Write};
 use std::os::unix::ffi::OsStrExt;
+use std::sync::Mutex;
 
 use std::path::{Path, PathBuf};
 
@@ -86,16 +87,18 @@ pub struct Metadata {
 }
 
 pub struct Buffer {
-    data: Vec<u8>,
+    data: Mutex<Vec<u8>>,
 }
 
 impl Buffer {
     pub fn new() -> Self {
-        Buffer { data: Vec::new() }
+        Buffer {
+            data: Mutex::new(Vec::new()),
+        }
     }
 
     pub fn trim_newline(&mut self) {
-        match self.data.pop() {
+        match self.data.lock().unwrap().pop() {
             Some(b'\n') => {}
             Some(ch) => panic!("Expected newline, got {:?}", ch),
             None => {}
@@ -107,26 +110,22 @@ impl Buffer {
     /// Returns OsString rather than String as this is typically compared to a PathBuf, which holds
     /// an OsString.
     pub fn last_line(&self) -> std::ffi::OsString {
-        match self.data.lines().last() {
+        match self.data.lock().unwrap().lines().last() {
             Some(line) => line.unwrap().into(),
             None => panic!("Expected at least one line in string."),
         }
     }
 }
 
-impl std::io::Write for Buffer {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.data.write(buf)
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        self.data.flush()
+impl crate::SyncWrite for Buffer {
+    fn write(&self, buf: &[u8]) -> std::io::Result<usize> {
+        self.data.lock().unwrap().write(buf)
     }
 }
 
 impl std::fmt::Debug for Buffer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match std::str::from_utf8(&self.data) {
+        match std::str::from_utf8(&self.data.lock().unwrap()) {
             Ok(s) => write!(f, "\"{s}\""),
             Err(_) => write!(f, "\"{:?}\"", self.data),
         }
@@ -135,12 +134,12 @@ impl std::fmt::Debug for Buffer {
 
 impl PartialEq<&str> for Buffer {
     fn eq(&self, other: &&str) -> bool {
-        self.data == other.as_bytes()
+        *self.data.lock().unwrap() == other.as_bytes()
     }
 }
 
 impl PartialEq<&PathBuf> for Buffer {
     fn eq(&self, other: &&PathBuf) -> bool {
-        self.data == other.as_os_str().as_bytes()
+        *self.data.lock().unwrap() == other.as_os_str().as_bytes()
     }
 }

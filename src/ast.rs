@@ -1,7 +1,7 @@
 use std::os::unix::fs::MetadataExt;
 
 use crate::program_state::ProgramState;
-use crate::treewalk::treewalk;
+use crate::treewalk::*;
 
 pub struct FileState {
     pub path: std::path::PathBuf,
@@ -32,15 +32,15 @@ impl Attribute {
     }
 }
 
-pub struct Program<'a, T: std::io::Write> {
+pub struct Program<'a, T: crate::SyncWrite> {
     pub begin: Option<Action>,
     pub end: Option<Action>,
     pub routines: Vec<Routine>,
     pub prog_state: ProgramState<'a, T>,
 }
 
-impl<'a, T: std::io::Write> Program<'a, T> {
-    pub fn run(&mut self, path: &std::path::Path) {
+impl<'a, T: crate::SyncWrite> Program<'a, T> {
+    pub fn run(&'a self, path: &std::path::Path) {
         let md = std::fs::metadata(&path).unwrap();
 
         self.begin();
@@ -50,27 +50,27 @@ impl<'a, T: std::io::Write> Program<'a, T> {
                 path: path.into(),
                 md,
             };
-            treewalk(&self.routines, f, &mut self.prog_state);
+            treewalk_concurrent(&self.routines, f, &self.prog_state);
         } else {
             let file_state = FileState {
                 path: path.into(),
                 md,
             };
-            run_routines(&self.routines, &file_state, &mut self.prog_state);
+            run_routines(&self.routines, &file_state, &self.prog_state);
         }
 
         self.end();
     }
 
-    fn begin(&mut self) {
+    fn begin(&self) {
         if let Some(begin) = &self.begin {
-            begin.interpret(None, &mut self.prog_state);
+            begin.interpret(None, &self.prog_state);
         }
     }
 
-    fn end(&mut self) {
+    fn end(&self) {
         if let Some(end) = &self.end {
-            end.interpret(None, &mut self.prog_state);
+            end.interpret(None, &self.prog_state);
         }
     }
 }
@@ -87,10 +87,10 @@ impl Routine {
     }
 }
 
-pub fn run_routines<'a, T: std::io::Write>(
+pub fn run_routines<'a, T: crate::SyncWrite>(
     routines: &Vec<Routine>,
     f: &FileState,
-    p: &mut ProgramState<'a, T>,
+    p: &ProgramState<'a, T>,
 ) {
     for routine in routines.iter() {
         match &routine.cond {
@@ -160,7 +160,7 @@ pub enum Statement {
 }
 
 impl Statement {
-    fn interpret<T: std::io::Write>(&self, f: Option<&FileState>, p: &mut ProgramState<T>) {
+    fn interpret<T: crate::SyncWrite>(&self, f: Option<&FileState>, p: &ProgramState<T>) {
         match self {
             Statement::Assignment(a) => {
                 p.set_variable(a.id.id, a.val.evaluate(f, p).to_integer());
@@ -185,7 +185,7 @@ pub struct Identifier {
 }
 
 impl Identifier {
-    fn evaluate<T: std::io::Write>(&self, p: &ProgramState<T>) -> Value {
+    fn evaluate<T: crate::SyncWrite>(&self, p: &ProgramState<T>) -> Value {
         Value::Integer(p.get_variable(self.id))
     }
 }
@@ -205,7 +205,7 @@ impl Action {
         }
     }
 
-    fn interpret<T: std::io::Write>(&self, f: Option<&FileState>, p: &mut ProgramState<T>) {
+    fn interpret<T: crate::SyncWrite>(&self, f: Option<&FileState>, p: &ProgramState<T>) {
         match &self.statements {
             Some(statements) => statements.iter().for_each(|s| s.interpret(f, p)),
             // Default action is to print filename:
@@ -229,7 +229,7 @@ pub struct BinaryOp {
 }
 
 impl BinaryOp {
-    fn evaluate<T: std::io::Write>(&self, f: Option<&FileState>, p: &ProgramState<T>) -> Value {
+    fn evaluate<T: crate::SyncWrite>(&self, f: Option<&FileState>, p: &ProgramState<T>) -> Value {
         let l = self.left.evaluate(f, p);
         let r = self.right.evaluate(f, p);
 
@@ -293,7 +293,7 @@ pub enum Expression {
 }
 
 impl Expression {
-    fn evaluate<T: std::io::Write>(&self, f: Option<&FileState>, p: &ProgramState<T>) -> Value {
+    fn evaluate<T: crate::SyncWrite>(&self, f: Option<&FileState>, p: &ProgramState<T>) -> Value {
         match self {
             Expression::Bin(op) => op.evaluate(f, p),
             Expression::Attr(attr) => attr.evaluate(f),

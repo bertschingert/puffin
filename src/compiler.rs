@@ -17,7 +17,7 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    pub fn compile<'b, T: std::io::Write>(&mut self, out: &'b mut T) -> Program<'b, T> {
+    pub fn compile<'b, T: crate::SyncWrite>(&mut self, out: &'b mut T) -> Program<'b, T> {
         self.next();
 
         let mut begin = None;
