@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::ast::*;
+use crate::types::*;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {

@@ -3,6 +3,7 @@ pub mod compiler;
 pub mod program_state;
 pub mod scanner;
 pub mod treewalk;
+pub mod types;
 
 pub mod test_libs;
 
