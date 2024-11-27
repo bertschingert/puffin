@@ -26,7 +26,7 @@ impl<'a, T: crate::SyncWrite> Program<'a, T> {
                 path: path.into(),
                 md,
             };
-            treewalk_concurrent(&self.routines, f, &self.prog_state);
+            treewalk(args, &self.routines, f, &self.prog_state);
         } else {
             let file_state = FileState {
                 path: path.into(),

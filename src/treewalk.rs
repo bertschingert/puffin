@@ -3,11 +3,24 @@ use std::path::{Path, PathBuf};
 
 use crate::ast::{run_routines, FileState, Routine};
 use crate::program_state::ProgramState;
+use crate::Args;
 
 pub fn treewalk<'a, T: crate::SyncWrite>(
+    args: &Args,
     routines: &Vec<Routine>,
     f: FileState,
-    p: &mut ProgramState<'a, T>,
+    p: &ProgramState<'a, T>,
+) {
+    match args.n_threads {
+        1 => treewalk_single_threaded(routines, f, p),
+        _ => treewalk_multi_threaded(args, routines, f, p),
+    };
+}
+
+fn treewalk_single_threaded<'a, T: crate::SyncWrite>(
+    routines: &Vec<Routine>,
+    f: FileState,
+    p: &ProgramState<'a, T>,
 ) {
     run_routines(routines, &f, p);
 
@@ -54,7 +67,8 @@ struct State<'a, 'p, T: crate::SyncWrite> {
     prog_state: &'p ProgramState<'p, T>,
 }
 
-pub fn treewalk_concurrent<'p, T: crate::SyncWrite>(
+fn treewalk_multi_threaded<'p, T: crate::SyncWrite>(
+    args: &Args,
     routines: &'p Vec<Routine>,
     f: FileState,
     p: &'p ProgramState<'p, T>,
@@ -62,15 +76,14 @@ pub fn treewalk_concurrent<'p, T: crate::SyncWrite>(
     let mut workers: Vec<Worker<PathBuf>> = Vec::new();
     let mut stealers: Vec<Stealer<PathBuf>> = Vec::new();
 
-    // TODO: command line argument for number of threads
-    for _ in 0..4 {
+    for _ in 0..args.n_threads {
         let worker = Worker::new_fifo();
         stealers.push(worker.stealer());
         workers.push(worker);
     }
 
     let state = State {
-        n_workers: 4,
+        n_workers: args.n_threads,
         stealers: &stealers,
         routines,
         prog_state: p,
@@ -79,7 +92,7 @@ pub fn treewalk_concurrent<'p, T: crate::SyncWrite>(
     workers[0].push(f.path);
 
     std::thread::scope(|s| {
-        for _ in 0..4 {
+        for _ in 0..args.n_threads {
             let worker = workers.pop().unwrap();
             let state = &state;
             s.spawn(move || {
