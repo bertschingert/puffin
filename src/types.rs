@@ -56,36 +56,32 @@ pub enum Attribute {
 }
 
 impl Attribute {
-    pub fn evaluate(&self, f: Option<&FileState>) -> Value {
+    pub fn evaluate(&self, f: Option<&FileState>) -> crate::Result<Value> {
         match f {
             Some(f) => self.evaluate_with_file(f),
-            None => panic!("Cannot evaluate attribute in BEGIN or END block"),
+            None => Err(crate::Error::AttributeInBeginOrEnd),
         }
     }
 
-    fn evaluate_with_file(&self, f: &FileState) -> Value {
-        match self {
+    fn evaluate_with_file(&self, f: &FileState) -> crate::Result<Value> {
+        Ok(match self {
             Attribute::Name => {
                 Value::String(f.path.file_name().unwrap().to_string_lossy().to_string())
             }
             Attribute::Path => Value::String(f.path.display().to_string()),
-            _ => self.evaluate_needs_stat(f),
-        }
+            _ => self.evaluate_needs_stat(f)?,
+        })
     }
 
-    fn evaluate_needs_stat(&self, f: &FileState) -> Value {
-        let md = match f.get_metadata().as_ref() {
-            Ok(md) => md,
-            // TODO: just return an error type here
-            Err(e) => panic!("could not stat {:?}: {e}", f.path.display()),
-        };
+    fn evaluate_needs_stat(&self, f: &FileState) -> crate::Result<Value> {
+        let md = f.get_metadata().as_ref()?;
 
-        match self {
+        Ok(match self {
             Attribute::Size => Value::Integer(md.size().try_into().unwrap()),
             Attribute::Owner => Value::Integer(md.uid().into()),
             Attribute::Name => unreachable!(),
             Attribute::Path => unreachable!(),
-        }
+        })
     }
 }
 

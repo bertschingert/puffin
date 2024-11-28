@@ -10,7 +10,7 @@ pub mod test_libs;
 use std::io::Write;
 
 use crate::compiler::Compiler;
-use crate::scanner::Scanner;
+use crate::scanner::{Scanner, Token};
 
 pub struct Args {
     pub path: std::path::PathBuf,
@@ -23,8 +23,38 @@ pub fn driver<T: crate::SyncWrite>(args: &crate::Args, out: &mut T) {
     let mut comp = Compiler::new(scanner);
     let prog = comp.compile(out);
 
-    prog.run(args);
+    let _ = prog.run(args);
 }
+
+#[derive(Debug)]
+pub enum Error {
+    CompileError(Token),
+    AttributeInBeginOrEnd,
+    IoError(std::io::ErrorKind),
+}
+
+impl std::error::Error for Error {}
+
+impl std::convert::From<&std::io::Error> for Error {
+    fn from(e: &std::io::Error) -> Self {
+        Error::IoError(e.kind())
+    }
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Error::CompileError(tok) => write!(f, "Error: unexpected token: {:?}", tok),
+            Error::AttributeInBeginOrEnd => write!(
+                f,
+                "Error: attempt to query a file attribute in a BEGIN or END block."
+            ),
+            Error::IoError(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 // Like std::io::Write but it requires that the writer be Sync.
 // Assumes that the type implementing SyncWrite uses interior mutability

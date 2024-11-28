@@ -37,34 +37,32 @@ pub struct Program<'a, T: crate::SyncWrite> {
 }
 
 impl<'a, T: crate::SyncWrite> Program<'a, T> {
-    pub fn run(&'a self, args: &crate::Args) {
+    pub fn run(&'a self, args: &crate::Args) -> crate::Result<()> {
         let path = &args.path;
 
         let md = std::fs::metadata(path).unwrap();
 
-        self.begin();
+        self.begin_or_end(&self.begin)?;
 
         if md.is_dir() {
             let f = FileState::new(path.into(), Some(md));
             treewalk(args, &self.routines, f, &self.prog_state);
         } else {
             let f = FileState::new(path.into(), Some(md));
-            run_routines(&self.routines, &f, &self.prog_state);
+            run_routines(&self.routines, &f, &self.prog_state)?;
         }
 
-        self.end();
+        self.begin_or_end(&self.end)
     }
 
-    fn begin(&self) {
-        if let Some(begin) = &self.begin {
-            begin.interpret(None, &self.prog_state);
+    fn begin_or_end(&self, action: &Option<Action>) -> crate::Result<()> {
+        if let Some(action) = action {
+            action
+                .interpret(None, &self.prog_state)
+                .inspect_err(|e| eprintln!("{e}"))?;
         }
-    }
 
-    fn end(&self) {
-        if let Some(end) = &self.end {
-            end.interpret(None, &self.prog_state);
-        }
+        Ok(())
     }
 }
 
@@ -84,17 +82,28 @@ pub fn run_routines<'a, T: crate::SyncWrite>(
     routines: &Vec<Routine>,
     f: &FileState,
     p: &ProgramState<'a, T>,
-) {
+) -> crate::Result<()> {
+    run_routines_inner(routines, f, p)
+        .inspect_err(|e| eprintln!("Could not run program on {:?}: {e}", f.path.display()))
+}
+
+fn run_routines_inner<'a, T: crate::SyncWrite>(
+    routines: &Vec<Routine>,
+    f: &FileState,
+    p: &ProgramState<'a, T>,
+) -> crate::Result<()> {
     for routine in routines.iter() {
         match &routine.cond {
             Some(cond) => {
-                if cond.expr.evaluate(Some(f), p).is_truthy() {
-                    routine.action.interpret(Some(f), p);
+                if cond.expr.evaluate(Some(f), p)?.is_truthy() {
+                    routine.action.interpret(Some(f), p)?;
                 }
             }
-            None => routine.action.interpret(Some(f), p),
+            None => routine.action.interpret(Some(f), p)?,
         }
     }
+
+    Ok(())
 }
 
 #[derive(Debug)]
@@ -109,15 +118,23 @@ pub enum Statement {
 }
 
 impl Statement {
-    fn interpret<T: crate::SyncWrite>(&self, f: Option<&FileState>, p: &ProgramState<T>) {
+    fn interpret<T: crate::SyncWrite>(
+        &self,
+        f: Option<&FileState>,
+        p: &ProgramState<T>,
+    ) -> crate::Result<()> {
         match self {
             Statement::Assignment(a) => {
-                p.set_variable(a.id.id, a.val.evaluate(f, p).to_integer());
+                p.set_variable(a.id.id, a.val.evaluate(f, p)?.to_integer());
             }
             Statement::Print(expr) => {
-                let _ = p.out.write(format!("{}\n", expr.evaluate(f, p)).as_bytes());
+                let _ = p
+                    .out
+                    .write(format!("{}\n", expr.evaluate(f, p)?).as_bytes());
             }
         }
+
+        Ok(())
     }
 }
 
@@ -142,9 +159,17 @@ impl Action {
         }
     }
 
-    fn interpret<T: crate::SyncWrite>(&self, f: Option<&FileState>, p: &ProgramState<T>) {
+    fn interpret<T: crate::SyncWrite>(
+        &self,
+        f: Option<&FileState>,
+        p: &ProgramState<T>,
+    ) -> crate::Result<()> {
         match &self.statements {
-            Some(statements) => statements.iter().for_each(|s| s.interpret(f, p)),
+            Some(statements) => {
+                for st in statements.iter() {
+                    st.interpret(f, p)?
+                }
+            }
             // Default action is to print filename:
             None => {
                 match f {
@@ -155,6 +180,8 @@ impl Action {
                 };
             }
         };
+
+        Ok(())
     }
 }
 
@@ -166,11 +193,15 @@ pub struct BinaryOp {
 }
 
 impl BinaryOp {
-    fn evaluate<T: crate::SyncWrite>(&self, f: Option<&FileState>, p: &ProgramState<T>) -> Value {
-        let l = self.left.evaluate(f, p);
-        let r = self.right.evaluate(f, p);
+    fn evaluate<T: crate::SyncWrite>(
+        &self,
+        f: Option<&FileState>,
+        p: &ProgramState<T>,
+    ) -> crate::Result<Value> {
+        let l = self.left.evaluate(f, p)?;
+        let r = self.right.evaluate(f, p)?;
 
-        self.kind.evaluate(l, r)
+        Ok(self.kind.evaluate(l, r))
     }
 }
 
@@ -230,13 +261,17 @@ pub enum Expression {
 }
 
 impl Expression {
-    fn evaluate<T: crate::SyncWrite>(&self, f: Option<&FileState>, p: &ProgramState<T>) -> Value {
-        match self {
-            Expression::Bin(op) => op.evaluate(f, p),
-            Expression::Attr(attr) => attr.evaluate(f),
+    fn evaluate<T: crate::SyncWrite>(
+        &self,
+        f: Option<&FileState>,
+        p: &ProgramState<T>,
+    ) -> crate::Result<Value> {
+        Ok(match self {
+            Expression::Bin(op) => op.evaluate(f, p)?,
+            Expression::Attr(attr) => attr.evaluate(f)?,
             Expression::Atom(v) => v.clone(),
             Expression::Id(id) => id.evaluate(p),
-        }
+        })
     }
 }
 

@@ -11,6 +11,13 @@ pub fn treewalk<'a, T: crate::SyncWrite>(
     f: FileState,
     p: &ProgramState<'a, T>,
 ) {
+    match run_routines(routines, &f, p) {
+        Ok(_) => {}
+        // If there was an error running the program on the root, there is no point in continuing
+        // as it would suggest the root no longer exists.
+        Err(_) => return,
+    };
+
     match args.n_threads {
         1 => treewalk_single_threaded(routines, f, p),
         _ => treewalk_multi_threaded(args, routines, f, p),
@@ -22,8 +29,6 @@ fn treewalk_single_threaded<'a, T: crate::SyncWrite>(
     f: FileState,
     p: &ProgramState<'a, T>,
 ) {
-    run_routines(routines, &f, p);
-
     let mut stack: Vec<std::path::PathBuf> = Vec::new();
     stack.push(f.path);
 
@@ -48,7 +53,7 @@ fn treewalk_single_threaded<'a, T: crate::SyncWrite>(
             }
 
             let f = FileState::new(ent.path(), None);
-            run_routines(routines, &f, p);
+            let _ = run_routines(routines, &f, p);
         }
     }
 }
@@ -140,7 +145,7 @@ fn process_directory<T: crate::SyncWrite>(path: &Path, w: &Worker<PathBuf>, stat
 
         let f = FileState::new(ent.path(), None);
 
-        run_routines(state.routines, &f, state.prog_state);
+        let _ = run_routines(state.routines, &f, state.prog_state);
 
         let Ok(ty) = ent.file_type() else {
             continue;
