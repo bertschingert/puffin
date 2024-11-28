@@ -95,7 +95,7 @@ fn run_routines_inner<'a, T: crate::SyncWrite>(
     for routine in routines.iter() {
         match &routine.cond {
             Some(cond) => {
-                if cond.expr.evaluate(Some(f), p)?.is_truthy() {
+                if cond.expr.evaluate(Some(f), p, None)?.is_truthy() {
                     routine.action.interpret(Some(f), p)?;
                 }
             }
@@ -125,12 +125,12 @@ impl Statement {
     ) -> crate::Result<()> {
         match self {
             Statement::Assignment(a) => {
-                p.set_variable(a.id.id, a.val.evaluate(f, p)?.to_integer());
+                p.set_variable_expression(a.id.id, f, &a.val)?;
             }
             Statement::Print(expr) => {
                 let _ = p
                     .out
-                    .write(format!("{}\n", expr.evaluate(f, p)?).as_bytes());
+                    .write(format!("{}\n", expr.evaluate(f, p, None)?).as_bytes());
             }
         }
 
@@ -197,9 +197,10 @@ impl BinaryOp {
         &self,
         f: Option<&FileState>,
         p: &ProgramState<T>,
+        with_vars: Option<&Vec<i64>>,
     ) -> crate::Result<Value> {
-        let l = self.left.evaluate(f, p)?;
-        let r = self.right.evaluate(f, p)?;
+        let l = self.left.evaluate(f, p, with_vars)?;
+        let r = self.right.evaluate(f, p, with_vars)?;
 
         Ok(self.kind.evaluate(l, r))
     }
@@ -261,16 +262,22 @@ pub enum Expression {
 }
 
 impl Expression {
-    fn evaluate<T: crate::SyncWrite>(
+    /// Evaluate an expression within the context of the given `FileState` and `ProgramState`.
+    ///
+    /// If the expression is evaluated as the right-hand side of an assignment to a global variable,
+    /// then `with_vars` will be a reference to the unlocked global variables vector, so that any
+    /// globals that are evaluated use the already-unlocked vector.
+    pub fn evaluate<T: crate::SyncWrite>(
         &self,
         f: Option<&FileState>,
         p: &ProgramState<T>,
+        with_vars: Option<&Vec<i64>>,
     ) -> crate::Result<Value> {
         Ok(match self {
-            Expression::Bin(op) => op.evaluate(f, p)?,
+            Expression::Bin(op) => op.evaluate(f, p, with_vars)?,
             Expression::Attr(attr) => attr.evaluate(f)?,
             Expression::Atom(v) => v.clone(),
-            Expression::Id(id) => id.evaluate(p),
+            Expression::Id(id) => id.evaluate(p, with_vars),
         })
     }
 }

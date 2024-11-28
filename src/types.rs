@@ -92,7 +92,19 @@ pub struct Identifier {
 }
 
 impl Identifier {
-    pub fn evaluate<T: crate::SyncWrite>(&self, p: &ProgramState<T>) -> Value {
-        Value::Integer(p.get_variable(self.id))
+    /// Evaluate a global variable within the context of the `ProgramState`.
+    ///
+    /// If this identifier appears on the right-hand side of an assignment to another global
+    /// variable, then `with_vars` will contain a reference to the already-unlocked globals vector,
+    /// which the Value can be taken directly from.
+    pub fn evaluate<T: crate::SyncWrite>(
+        &self,
+        p: &ProgramState<T>,
+        with_vars: Option<&Vec<i64>>,
+    ) -> Value {
+        Value::Integer(match with_vars {
+            Some(vars) => vars[self.id],
+            None => p.get_variable(self.id),
+        })
     }
 }

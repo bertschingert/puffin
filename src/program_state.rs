@@ -1,5 +1,7 @@
 use std::sync::Mutex;
 
+use crate::ast::{Expression, FileState};
+
 pub struct ProgramState<'a, T: crate::SyncWrite> {
     /// Vector of values of variables
     vars: Mutex<Vec<i64>>,
@@ -22,9 +24,16 @@ impl<'a, T: crate::SyncWrite> ProgramState<'a, T> {
         vars[var]
     }
 
-    pub fn set_variable(&self, var: usize, new_val: i64) {
+    pub fn set_variable_expression(
+        &self,
+        assignee: usize,
+        f: Option<&FileState>,
+        expr: &Expression,
+    ) -> crate::Result<()> {
         let mut vars = self.vars.lock().unwrap();
+        let new = expr.evaluate(f, self, Some(&vars))?;
+        vars[assignee] = new.to_integer();
 
-        vars[var] = new_val;
+        Ok(())
     }
 }
