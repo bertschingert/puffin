@@ -90,6 +90,7 @@ impl<'a> TestState<'a> {
             if depth > 0 {
                 for i in 0..branching_factor {
                     let subdir = root.join(format!("subdir_{i}"));
+                    // XXX: don't bail out on EEXIST?
                     std::fs::create_dir(&subdir)?;
 
                     make_tree_inner(&subdir, depth - 1, branching_factor, files_per_dir)?;
