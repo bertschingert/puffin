@@ -75,6 +75,33 @@ impl<'a> TestState<'a> {
         Ok(path)
     }
 
+    pub fn make_tree(
+        &self,
+        depth: usize,
+        branching_factor: usize,
+        files_per_dir: usize,
+    ) -> Result<()> {
+        fn make_tree_inner(
+            root: &Path,
+            depth: usize,
+            branching_factor: usize,
+            files_per_dir: usize,
+        ) -> Result<()> {
+            if depth > 0 {
+                for i in 0..branching_factor {
+                    let subdir = root.join(format!("subdir_{i}"));
+                    std::fs::create_dir(&subdir)?;
+
+                    make_tree_inner(&subdir, depth - 1, branching_factor, files_per_dir)?;
+                }
+            }
+
+            Ok(())
+        }
+
+        make_tree_inner(&self.test_subdir(), depth, branching_factor, files_per_dir)
+    }
+
     fn create_file_md(&self, path: &Path, metadata: Metadata) -> Result<()> {
         std::fs::File::create(&path)?;
         Ok(nix::unistd::truncate(path, metadata.size)?)
