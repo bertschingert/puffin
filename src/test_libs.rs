@@ -8,14 +8,19 @@ const TEST_DIR: &str = "puffin_tests";
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
+/// A struct representing a test's state.
+///
+/// Since tests run concurrently, each test gets its own subdirectory within the testing directory.
+/// All file creations done by a test should be done via methods on `TestState` so that they are
+/// created in the appropriate subdirectory.
 pub struct TestState<'a> {
     /// The subdirectory that the test is to be performed in, based on the name of the test.
     test_subdir: &'a str,
 }
 
 impl<'a> TestState<'a> {
-    pub fn setup(test_subdir: &'a str) -> std::io::Result<TestState> {
-        let subdir = PathBuf::from(TEST_DIR).join(test_subdir);
+    pub fn setup(test_name: &'a str) -> std::io::Result<TestState> {
+        let subdir = PathBuf::from(TEST_DIR).join(test_name);
 
         let _ = std::fs::create_dir(TEST_DIR);
 
@@ -25,7 +30,9 @@ impl<'a> TestState<'a> {
             e => e?,
         };
 
-        Ok(TestState { test_subdir })
+        Ok(TestState {
+            test_subdir: test_name,
+        })
     }
 
     pub fn cleanup(&self) -> std::io::Result<()> {
@@ -49,7 +56,7 @@ impl<'a> TestState<'a> {
     }
 
     /// Get a PathBuf for a file within the test subdirectory.
-    pub fn get_path(&self, filename: &str) -> PathBuf {
+    pub fn get_path<P: AsRef<Path>>(&self, filename: P) -> PathBuf {
         std::path::PathBuf::from(TEST_DIR)
             .join(self.test_subdir)
             .join(filename)
@@ -60,9 +67,21 @@ impl<'a> TestState<'a> {
         std::path::PathBuf::from(TEST_DIR).join(self.test_subdir)
     }
 
-    pub fn create_file(&self, filename: &str, metadata: Option<Metadata>) -> Result<PathBuf> {
+    /// Create a file in the test's subdirectory named `filename`, and use `metadata` if it is
+    /// provided.
+    pub fn create_file<P: AsRef<Path>>(
+        &self,
+        filename: P,
+        metadata: Option<Metadata>,
+    ) -> Result<PathBuf> {
         let path = self.get_path(filename);
+        self.create_file_fullpath(&path, metadata)?;
 
+        Ok(path)
+    }
+
+    /// Create a file at `path` with optional `metadata`.
+    fn create_file_fullpath(&self, path: &Path, metadata: Option<Metadata>) -> Result<()> {
         match metadata {
             Some(md) => {
                 self.create_file_md(&path, md)?;
@@ -72,44 +91,86 @@ impl<'a> TestState<'a> {
             }
         };
 
-        Ok(path)
-    }
-
-    pub fn make_tree(
-        &self,
-        depth: usize,
-        branching_factor: usize,
-        files_per_dir: usize,
-    ) -> Result<()> {
-        fn make_tree_inner(
-            root: &Path,
-            depth: usize,
-            branching_factor: usize,
-            files_per_dir: usize,
-        ) -> Result<()> {
-            if depth > 0 {
-                for i in 0..branching_factor {
-                    let subdir = root.join(format!("subdir_{i}"));
-                    // XXX: don't bail out on EEXIST?
-                    std::fs::create_dir(&subdir)?;
-
-                    make_tree_inner(&subdir, depth - 1, branching_factor, files_per_dir)?;
-                }
-            }
-
-            Ok(())
-        }
-
-        make_tree_inner(&self.test_subdir(), depth, branching_factor, files_per_dir)
+        Ok(())
     }
 
     fn create_file_md(&self, path: &Path, metadata: Metadata) -> Result<()> {
-        std::fs::File::create(&path)?;
-        Ok(nix::unistd::truncate(path, metadata.size)?)
+        create_file_ignore_eexist(path)?;
+        nix::unistd::truncate(path, metadata.size)?;
+
+        Ok(())
+    }
+
+    fn create_n_files(&self, n: usize, parent: &Path, metadata: Option<Metadata>) -> Result<()> {
+        for i in 0..n {
+            let path = parent.join(format!("file_{i}"));
+            self.create_file_fullpath(&path, metadata)?;
+        }
+
+        Ok(())
+    }
+
+    /// Create a tree named `root` under the test subdirectory with the specified parameters.
+    pub fn make_tree(
+        &self,
+        root_name: &str,
+        depth: usize,
+        branching_factor: usize,
+        files_per_dir: usize,
+        file_metadata: Option<Metadata>,
+    ) -> Result<()> {
+        let root = self.get_path(root_name);
+        create_dir_ignore_eexist(&root)?;
+        self.make_tree_inner(&root, depth, branching_factor, files_per_dir, file_metadata)
+    }
+
+    fn make_tree_inner(
+        &self,
+        root_path: &Path,
+        depth: usize,
+        branching_factor: usize,
+        files_per_dir: usize,
+        file_metadata: Option<Metadata>,
+    ) -> Result<()> {
+        if depth > 0 {
+            for i in 0..branching_factor {
+                let subdir = root_path.join(format!("subdir_{i}"));
+                create_dir_ignore_eexist(&subdir)?;
+
+                self.create_n_files(files_per_dir, &subdir, file_metadata)?;
+
+                self.make_tree_inner(
+                    &subdir,
+                    depth - 1,
+                    branching_factor,
+                    files_per_dir,
+                    file_metadata,
+                )?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+fn create_file_ignore_eexist<P: AsRef<Path>>(path: P) -> std::io::Result<()> {
+    match std::fs::File::create(path) {
+        Ok(_) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => Ok(()),
+        Err(e) => Err(e),
+    }
+}
+
+fn create_dir_ignore_eexist(path: &Path) -> std::io::Result<()> {
+    match std::fs::create_dir(path) {
+        Ok(_) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => Ok(()),
+        Err(e) => Err(e),
     }
 }
 
 /// Metadata to set when creating test files.
+#[derive(Copy, Clone)]
 pub struct Metadata {
     pub size: i64,
 }
