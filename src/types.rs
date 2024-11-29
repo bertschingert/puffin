@@ -98,7 +98,7 @@ impl Identifier {
     /// If this identifier appears on the right-hand side of an assignment to another global
     /// variable, then `with_vars` will contain a reference to the already-unlocked globals vector,
     /// which the Value can be taken directly from.
-    pub fn evaluate<T: crate::SyncWrite>(
+    fn evaluate<T: crate::SyncWrite>(
         &self,
         p: &ProgramState<T>,
         with_vars: Option<&Vec<i64>>,
@@ -107,5 +107,39 @@ impl Identifier {
             Some(vars) => vars[self.id],
             None => p.get_variable(self.id),
         })
+    }
+}
+
+#[derive(Debug)]
+pub struct ArraySubscript {
+    pub id: usize,
+    pub subscript: Box<Expression>,
+}
+
+#[derive(Debug)]
+pub enum Variable {
+    Id(Identifier),
+    Arr(ArraySubscript),
+}
+
+impl Variable {
+    pub fn evaluate<T: crate::SyncWrite>(
+        &self,
+        p: &ProgramState<T>,
+        with_vars: Option<&Vec<i64>>,
+    ) -> Value {
+        match self {
+            Variable::Id(id) => id.evaluate(p, with_vars),
+            Variable::Arr(_arr) => todo!(),
+        }
+    }
+}
+
+impl std::fmt::Display for Variable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Variable::Id(id) => write!(f, "Var({})", id.id),
+            Variable::Arr(arr) => write!(f, "Var({})[{}]", arr.id, arr.subscript),
+        }
     }
 }

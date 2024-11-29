@@ -148,7 +148,7 @@ impl<'a> Compiler<'a> {
 
         Expression::Bin(BinaryOp {
             kind,
-            left: Box::new(Expression::Id(id)),
+            left: Box::new(Expression::Var(Variable::Id(id))),
             right: Box::new(self.expression(0)),
         })
     }
@@ -172,22 +172,28 @@ impl<'a> Compiler<'a> {
         let mut left = self.factor();
 
         let mut next = self.peek();
-        while let Token::BinOp(op) = next {
-            let op = *op;
-            if Self::op_precedence(op) < min_precedence {
-                break;
+        loop {
+            // while let Token::BinOp(op) = next {
+            match next {
+                Token::BinOp(op) => {
+                    let op = *op;
+                    if Self::op_precedence(op) < min_precedence {
+                        break;
+                    }
+
+                    self.next();
+
+                    let right = self.expression(Self::op_precedence(op));
+                    left = Expression::Bin(BinaryOp {
+                        kind: op,
+                        left: Box::new(left),
+                        right: Box::new(right),
+                    });
+
+                    next = self.peek();
+                }
+                _ => break,
             }
-
-            self.next();
-
-            let right = self.expression(Self::op_precedence(op));
-            left = Expression::Bin(BinaryOp {
-                kind: op,
-                left: Box::new(left),
-                right: Box::new(right),
-            });
-
-            next = self.peek();
         }
 
         left
@@ -212,7 +218,7 @@ impl<'a> Compiler<'a> {
         let e = match next {
             Token::Value(v) => Expression::Atom(v.clone()),
             Token::Attr(a) => Expression::Attr(*a),
-            Token::Identifier(id) => Expression::Id(Identifier { id: *id }),
+            Token::Identifier(id) => Expression::Var(Variable::Id(Identifier { id: *id })),
             t => panic!("Unexpected token {:?}", t),
         };
         self.next();

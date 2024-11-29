@@ -268,7 +268,7 @@ pub enum Expression {
     Bin(BinaryOp),
     Attr(Attribute),
     Atom(Value),
-    Id(Identifier),
+    Var(Variable),
 }
 
 impl Expression {
@@ -287,7 +287,7 @@ impl Expression {
             Expression::Bin(op) => op.evaluate(f, p, with_vars)?,
             Expression::Attr(attr) => attr.evaluate(f)?,
             Expression::Atom(v) => v.clone(),
-            Expression::Id(id) => id.evaluate(p, with_vars),
+            Expression::Var(var) => var.evaluate(p, with_vars),
         })
     }
 }
@@ -297,7 +297,7 @@ impl std::fmt::Display for Expression {
         match self {
             Expression::Atom(val) => write!(f, "{:?}", val),
             Expression::Attr(attr) => write!(f, "{:?}", attr),
-            Expression::Id(id) => write!(f, "{}", id.id),
+            Expression::Var(var) => write!(f, "{}", var),
             Expression::Bin(op) => {
                 write!(
                     f,
