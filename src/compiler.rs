@@ -101,13 +101,27 @@ impl<'a> Compiler<'a> {
                 Action::new(None)
             }
             _ => {
-                let action = Action::new(Some(self.statement()));
+                let action = Action::new(Some(self.statements()));
                 self.eat(Token::RightBrace);
                 action
             }
         }
     }
 
+    fn statements(&mut self) -> Vec<Statement> {
+        let mut statements = Vec::new();
+        loop {
+            statements.push(self.statement());
+            match self.peek() {
+                Token::RightBrace => break,
+                // XXX: allow newline to separate statement?
+                Token::Semicolon => self.next(),
+                _ => panic!("Expected either ';' or '}}' after a statement."),
+            };
+        }
+
+        statements
+    }
     fn statement(&mut self) -> Statement {
         match self.next() {
             Token::Identifier(id) => {

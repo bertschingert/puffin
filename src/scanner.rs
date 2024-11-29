@@ -12,6 +12,7 @@ pub enum Token {
     MinusEqual,
     LeftBrace,
     RightBrace,
+    Semicolon,
     Print,
     Value(Value),
     BinOp(OpKind),
@@ -67,6 +68,7 @@ impl<'a> Scanner<'a> {
             '/' => Token::BinOp(OpKind::Divide),
             '{' => Token::LeftBrace,
             '}' => Token::RightBrace,
+            ';' => Token::Semicolon,
             '"' => {
                 self.start = ind + 1;
                 self.current = ind;
@@ -308,6 +310,15 @@ mod tests {
         assert_eq!(s.next_token(), Token::Value(Value::String("hey".to_string())));
         assert_eq!(s.next_token(), Token::Value(Value::String("there".to_string())));
         assert!(is_error_token(s.next_token()));
+        assert_eq!(s.next_token(), Token::Eof);
+    }
+
+    #[test]
+    fn other_tokens() {
+        let mut s = Scanner::new("{ } ;");
+        assert_eq!(s.next_token(), Token::LeftBrace);
+        assert_eq!(s.next_token(), Token::RightBrace);
+        assert_eq!(s.next_token(), Token::Semicolon);
         assert_eq!(s.next_token(), Token::Eof);
     }
 }

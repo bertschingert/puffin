@@ -150,10 +150,10 @@ pub struct Action {
 }
 
 impl Action {
-    pub fn new(statement: Option<Statement>) -> Self {
+    pub fn new(statement: Option<Vec<Statement>>) -> Self {
         match statement {
             Some(s) => Action {
-                statements: Some(vec![s]),
+                statements: Some(s),
             },
             None => Action { statements: None },
         }

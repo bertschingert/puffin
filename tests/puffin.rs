@@ -225,3 +225,13 @@ fn print_paths() {
 
     state.cleanup();
 }
+
+#[test]
+fn print_statements() {
+    test_one_file_with_program(
+        "print_statements",
+        None,
+        "{ print \"hey\"; print \"there\" }",
+        ExpectedOutput::String("hey\nthere\n"),
+    );
+}
