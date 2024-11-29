@@ -234,4 +234,11 @@ fn print_statements() {
         "{ print \"hey\"; print \"there\" }",
         ExpectedOutput::String("hey\nthere\n"),
     );
+
+    test_one_file_with_program(
+        "print_statements",
+        Some(Metadata { size: 69 }),
+        "{ print \"hey\", \"there\"; print \"size:\", .size }",
+        ExpectedOutput::String("hey there\nsize: 69\n"),
+    );
 }

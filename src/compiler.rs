@@ -134,7 +134,7 @@ impl<'a> Compiler<'a> {
                 };
                 Statement::Assignment(Assignment { id, val })
             }
-            Token::Print => Statement::Print(self.expression(0)),
+            Token::Print => Statement::Print(self.expressions()),
             tok => panic!("Unexpected token: {:?}", tok),
         }
     }
@@ -151,6 +151,21 @@ impl<'a> Compiler<'a> {
             left: Box::new(Expression::Id(id)),
             right: Box::new(self.expression(0)),
         })
+    }
+
+    fn expressions(&mut self) -> Vec<Expression> {
+        let mut exprs = Vec::new();
+        loop {
+            match self.peek() {
+                Token::Comma => {
+                    self.next();
+                    continue;
+                }
+                Token::RightBrace => return exprs,
+                Token::Semicolon => return exprs,
+                _ => exprs.push(self.expression(0)),
+            }
+        }
     }
 
     fn expression(&mut self, min_precedence: u8) -> Expression {

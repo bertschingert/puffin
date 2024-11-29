@@ -13,6 +13,7 @@ pub enum Token {
     LeftBrace,
     RightBrace,
     Semicolon,
+    Comma,
     Print,
     Value(Value),
     BinOp(OpKind),
@@ -69,6 +70,7 @@ impl<'a> Scanner<'a> {
             '{' => Token::LeftBrace,
             '}' => Token::RightBrace,
             ';' => Token::Semicolon,
+            ',' => Token::Comma,
             '"' => {
                 self.start = ind + 1;
                 self.current = ind;
@@ -315,10 +317,11 @@ mod tests {
 
     #[test]
     fn other_tokens() {
-        let mut s = Scanner::new("{ } ;");
+        let mut s = Scanner::new("{ } ;, ");
         assert_eq!(s.next_token(), Token::LeftBrace);
         assert_eq!(s.next_token(), Token::RightBrace);
         assert_eq!(s.next_token(), Token::Semicolon);
+        assert_eq!(s.next_token(), Token::Comma);
         assert_eq!(s.next_token(), Token::Eof);
     }
 }

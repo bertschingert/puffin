@@ -114,7 +114,7 @@ pub struct Condition {
 #[derive(Debug)]
 pub enum Statement {
     Assignment(Assignment),
-    Print(Expression),
+    Print(Vec<Expression>),
 }
 
 impl Statement {
@@ -127,10 +127,20 @@ impl Statement {
             Statement::Assignment(a) => {
                 p.set_variable_expression(a.id.id, f, &a.val)?;
             }
-            Statement::Print(expr) => {
-                let _ = p
-                    .out
-                    .write(format!("{}\n", expr.evaluate(f, p, None)?).as_bytes());
+            Statement::Print(exprs) => {
+                let mut exprs = exprs.iter();
+                let mut s = match exprs.nth(0) {
+                    Some(expr) => format!("{}", expr.evaluate(f, p, None)?),
+                    None => {
+                        let _ = p.out.write("\n".as_bytes());
+                        return Ok(());
+                    }
+                };
+                for expr in exprs {
+                    s.push_str(&format!(" {}", expr.evaluate(f, p, None)?));
+                }
+                s.push('\n');
+                let _ = p.out.write(s.as_bytes());
             }
         }
 
