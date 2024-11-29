@@ -35,7 +35,11 @@ impl<'a> TestState<'a> {
         })
     }
 
-    pub fn cleanup(&self) -> std::io::Result<()> {
+    /// Clean up a test's state by removing all files/dirs created by the test.
+    ///
+    /// This is not implemented in Drop because we want the test's state to be left around if the
+    /// test fails so that it can be examined.
+    pub fn cleanup(&self) {
         let subdir = PathBuf::from(TEST_DIR).join(self.test_subdir);
 
         fn remove_recursive(path: &Path) -> std::io::Result<()> {
@@ -52,7 +56,7 @@ impl<'a> TestState<'a> {
             std::fs::remove_dir(path)
         }
 
-        remove_recursive(&subdir)
+        remove_recursive(&subdir).unwrap();
     }
 
     /// Get a PathBuf for a file within the test subdirectory.

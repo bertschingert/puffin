@@ -21,7 +21,7 @@ fn count_files_1() {
     buf.trim_newline();
     assert_eq!(buf, "40");
 
-    state.cleanup().unwrap();
+    state.cleanup();
 }
 
 #[test]
@@ -44,7 +44,7 @@ fn count_files_2() {
     buf.trim_newline();
     assert_eq!(buf, "40");
 
-    state.cleanup().unwrap();
+    state.cleanup();
 }
 
 #[test]
@@ -73,5 +73,5 @@ fn count_files_by_size() {
     buf.trim_newline();
     assert_eq!(buf, "24");
 
-    state.cleanup().unwrap();
+    state.cleanup();
 }

@@ -40,7 +40,7 @@ fn test_one_file_with_program(
         }
     };
 
-    assert!(state.cleanup().is_ok());
+    state.cleanup();
 }
 
 #[test]
@@ -64,7 +64,7 @@ fn empty_program() {
 
     assert_eq!(&buf.last_line(), &path);
 
-    assert!(state.cleanup().is_ok());
+    state.cleanup();
 }
 
 #[test]
@@ -223,5 +223,5 @@ fn print_paths() {
     buf.trim_newline();
     assert_eq!(buf, &path);
 
-    assert!(state.cleanup().is_ok());
+    state.cleanup();
 }
