@@ -65,9 +65,10 @@ impl Attribute {
 
     fn evaluate_with_file(&self, f: &FileState) -> crate::Result<Value> {
         Ok(match self {
-            Attribute::Name => {
-                Value::String(f.path.file_name().unwrap().to_string_lossy().to_string())
-            }
+            Attribute::Name => Value::String(match f.path.file_name() {
+                Some(s) => s.to_string_lossy().to_string(),
+                None => f.path.display().to_string(),
+            }),
             Attribute::Path => Value::String(f.path.display().to_string()),
             _ => self.evaluate_needs_stat(f)?,
         })
