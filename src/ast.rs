@@ -125,7 +125,7 @@ impl Statement {
     ) -> crate::Result<()> {
         match self {
             Statement::Assignment(a) => {
-                p.vars().set_variable_expression(a.id.id, f, &a.val)?;
+                p.vars().set_variable_expression(&a.lhs, f, &a.rhs)?;
             }
             Statement::Print(exprs) => {
                 let mut exprs = exprs.iter();
@@ -150,8 +150,8 @@ impl Statement {
 
 #[derive(Debug)]
 pub struct Assignment {
-    pub id: Identifier,
-    pub val: Expression,
+    pub lhs: Variable,
+    pub rhs: Expression,
 }
 
 #[derive(Debug)]
@@ -273,7 +273,7 @@ impl Expression {
             Expression::Bin(op) => op.evaluate(f, vars)?,
             Expression::Attr(attr) => attr.evaluate(f)?,
             Expression::Atom(v) => v.clone(),
-            Expression::Var(var) => var.evaluate(vars),
+            Expression::Var(var) => var.evaluate(f, vars)?,
         })
     }
 }

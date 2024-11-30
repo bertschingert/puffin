@@ -3,7 +3,7 @@ use std::os::unix::fs::MetadataExt;
 use crate::ast::*;
 use crate::program_state::VariableState;
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Eq, Hash, Clone, PartialEq, Debug)]
 pub enum Value {
     Integer(i64),
     String(String),
@@ -47,6 +47,7 @@ impl std::fmt::Display for Value {
     }
 }
 
+/// Attributes are file metadata.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Attribute {
     Name,
@@ -86,25 +87,7 @@ impl Attribute {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
-pub struct Identifier {
-    /// Index into variables vector.
-    pub id: usize,
-}
-
-impl Identifier {
-    /// Evaluate a global variable within the context of the `VariableState`.
-    fn evaluate(&self, vars: &VariableState) -> Value {
-        Value::Integer(vars.get_variable(self.id))
-    }
-}
-
-#[derive(Debug)]
-pub struct ArraySubscript {
-    pub id: usize,
-    pub subscript: Box<Expression>,
-}
-
+/// A Variable can be either a simple identifier, or an array name together with a subscript.
 #[derive(Debug)]
 pub enum Variable {
     Id(Identifier),
@@ -112,11 +95,8 @@ pub enum Variable {
 }
 
 impl Variable {
-    pub fn evaluate(&self, vars: &VariableState) -> Value {
-        match self {
-            Variable::Id(id) => id.evaluate(vars),
-            Variable::Arr(_arr) => todo!(),
-        }
+    pub fn evaluate(&self, f: Option<&FileState>, vars: &VariableState) -> crate::Result<Value> {
+        vars.get_variable(f, &self)
     }
 }
 
@@ -127,4 +107,16 @@ impl std::fmt::Display for Variable {
             Variable::Arr(arr) => write!(f, "Var({})[{}]", arr.id, arr.subscript),
         }
     }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct Identifier {
+    /// Index into variables vector.
+    pub id: usize,
+}
+
+#[derive(Debug)]
+pub struct ArraySubscript {
+    pub id: usize,
+    pub subscript: Box<Expression>,
 }

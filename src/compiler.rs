@@ -132,7 +132,10 @@ impl<'a> Compiler<'a> {
                     Token::MinusEqual => self.compound_assignment(id, Token::MinusEqual),
                     tok => panic!("Unexpected token: {:?}", tok),
                 };
-                Statement::Assignment(Assignment { id, val })
+                Statement::Assignment(Assignment {
+                    lhs: Variable::Id(id),
+                    rhs: val,
+                })
             }
             Token::Print => Statement::Print(self.expressions()),
             tok => panic!("Unexpected token: {:?}", tok),

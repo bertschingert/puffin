@@ -1,6 +1,8 @@
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 use crate::ast::{Expression, FileState};
+use crate::types::{ArraySubscript, Value, Variable};
 
 pub struct ProgramState<'a, 'b, T: crate::SyncWrite> {
     vars: VariableState<'b>,
@@ -40,16 +42,20 @@ impl<'a> VariableState<'a> {
         VariableState::Locked(LockedVars::new(num_vars))
     }
 
-    pub fn get_variable(&self, var: usize) -> i64 {
-        match self {
-            VariableState::Locked(l) => l.get_variable(var),
-            VariableState::Unlocked(u) => u.vars[var],
-        }
+    /// Get the value of a variable `var`, within the context of the given `FileState`.
+    ///
+    /// This can fail if getting the value has to do filesystem I/O, for example, if an array
+    /// subscript includes a file attribute.
+    pub fn get_variable(&self, f: Option<&FileState>, var: &Variable) -> crate::Result<Value> {
+        Ok(Value::Integer(match self {
+            VariableState::Locked(l) => l.get_variable(f, self, var)?,
+            VariableState::Unlocked(u) => u.get_variable(var),
+        }))
     }
 
     pub fn set_variable_expression(
         &self,
-        assignee: usize,
+        assignee: &Variable,
         f: Option<&FileState>,
         expr: &Expression,
     ) -> crate::Result<()> {
@@ -64,35 +70,95 @@ pub struct UnlockedVars<'a> {
     vars: &'a Vec<i64>,
 }
 
+impl<'a> UnlockedVars<'a> {
+    fn get_variable(&self, var: &Variable) -> i64 {
+        match var {
+            Variable::Id(id) => self.vars[id.id],
+            Variable::Arr(_) => {
+                todo!("Cannot yet evaluate an array value on the RHS of an assignment")
+            }
+        }
+    }
+}
+
 pub struct LockedVars {
     /// Vector of values of variables
     vars: Mutex<Vec<i64>>,
+    arrays: Mutex<Arrays>,
 }
 
 impl LockedVars {
     fn new(num_vars: usize) -> Self {
         LockedVars {
             vars: Mutex::new(vec![0; num_vars]),
+            arrays: Mutex::new(Arrays::new(0)),
         }
     }
 
-    fn get_variable(&self, var: usize) -> i64 {
-        let vars = self.vars.lock().unwrap();
-
-        vars[var]
+    fn get_variable(
+        &self,
+        f: Option<&FileState>,
+        s: &VariableState,
+        var: &Variable,
+    ) -> crate::Result<i64> {
+        Ok(match var {
+            Variable::Id(id) => {
+                let vars = self.vars.lock().unwrap();
+                vars[id.id]
+            }
+            Variable::Arr(arr) => {
+                let mut arrays = self.arrays.lock().unwrap();
+                arrays.get_variable(f, s, arr)?
+            }
+        })
     }
 
     fn set_variable_expression(
         &self,
-        assignee: usize,
+        assignee: &Variable,
         f: Option<&FileState>,
         expr: &Expression,
     ) -> crate::Result<()> {
-        let mut vars = self.vars.lock().unwrap();
-        let unlocked = UnlockedVars { vars: &*vars };
-        let new = expr.evaluate(f, &VariableState::Unlocked(unlocked))?;
-        vars[assignee] = new.to_integer();
+        match assignee {
+            Variable::Id(id) => {
+                let mut vars = self.vars.lock().unwrap();
+                let unlocked = UnlockedVars { vars: &*vars };
+                let new = expr.evaluate(f, &VariableState::Unlocked(unlocked))?;
+                vars[id.id] = new.to_integer();
+            }
+            Variable::Arr(_) => todo!(),
+        };
 
         Ok(())
+    }
+}
+
+struct Arrays {
+    arrs: Vec<HashMap<Value, i64>>,
+}
+
+impl Arrays {
+    fn new(num_arrays: usize) -> Self {
+        Arrays {
+            arrs: (0..num_arrays).map(|_| HashMap::new()).collect(),
+        }
+    }
+
+    /// Gets a value from an associate array by evaluating the subscript and looking up the entry
+    /// in the underlying hashmap for that value.
+    ///
+    /// If there is no entry in the map for that value, then the default result is 0.
+    ///
+    /// Fails if evaluating the subscript expression fails, which can occur if it has to do
+    /// filesystem I/O.
+    fn get_variable(
+        &mut self,
+        f: Option<&FileState>,
+        s: &VariableState,
+        arr: &ArraySubscript,
+    ) -> crate::Result<i64> {
+        Ok(*self.arrs[arr.id]
+            .entry(arr.subscript.evaluate(f, s)?)
+            .or_insert(0))
     }
 }
