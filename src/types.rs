@@ -1,7 +1,7 @@
 use std::os::unix::fs::MetadataExt;
 
 use crate::ast::*;
-use crate::program_state::ProgramState;
+use crate::program_state::VariableState;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum Value {
@@ -93,20 +93,9 @@ pub struct Identifier {
 }
 
 impl Identifier {
-    /// Evaluate a global variable within the context of the `ProgramState`.
-    ///
-    /// If this identifier appears on the right-hand side of an assignment to another global
-    /// variable, then `with_vars` will contain a reference to the already-unlocked globals vector,
-    /// which the Value can be taken directly from.
-    fn evaluate<T: crate::SyncWrite>(
-        &self,
-        p: &ProgramState<T>,
-        with_vars: Option<&Vec<i64>>,
-    ) -> Value {
-        Value::Integer(match with_vars {
-            Some(vars) => vars[self.id],
-            None => p.get_variable(self.id),
-        })
+    /// Evaluate a global variable within the context of the `VariableState`.
+    fn evaluate(&self, vars: &VariableState) -> Value {
+        Value::Integer(vars.get_variable(self.id))
     }
 }
 
@@ -123,13 +112,9 @@ pub enum Variable {
 }
 
 impl Variable {
-    pub fn evaluate<T: crate::SyncWrite>(
-        &self,
-        p: &ProgramState<T>,
-        with_vars: Option<&Vec<i64>>,
-    ) -> Value {
+    pub fn evaluate(&self, vars: &VariableState) -> Value {
         match self {
-            Variable::Id(id) => id.evaluate(p, with_vars),
+            Variable::Id(id) => id.evaluate(vars),
             Variable::Arr(_arr) => todo!(),
         }
     }

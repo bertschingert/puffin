@@ -5,11 +5,11 @@ use crate::ast::{run_routines, FileState, Routine};
 use crate::program_state::ProgramState;
 use crate::Args;
 
-pub fn treewalk<'a, T: crate::SyncWrite>(
+pub fn treewalk<'a, 'b, T: crate::SyncWrite>(
     args: &Args,
     routines: &Vec<Routine>,
     f: FileState,
-    p: &ProgramState<'a, T>,
+    p: &ProgramState<'a, 'b, T>,
 ) {
     match run_routines(routines, &f, p) {
         Ok(_) => {}
@@ -24,10 +24,10 @@ pub fn treewalk<'a, T: crate::SyncWrite>(
     };
 }
 
-fn treewalk_single_threaded<'a, T: crate::SyncWrite>(
+fn treewalk_single_threaded<'a, 'b, T: crate::SyncWrite>(
     routines: &Vec<Routine>,
     f: FileState,
-    p: &ProgramState<'a, T>,
+    p: &ProgramState<'a, 'b, T>,
 ) {
     let mut stack: Vec<std::path::PathBuf> = Vec::new();
     stack.push(f.path);
@@ -58,18 +58,18 @@ fn treewalk_single_threaded<'a, T: crate::SyncWrite>(
     }
 }
 
-struct State<'a, 'p, T: crate::SyncWrite> {
+struct State<'a, 'p1, 'p2, T: crate::SyncWrite> {
     n_workers: usize,
     stealers: &'a [Stealer<PathBuf>],
-    routines: &'p Vec<Routine>,
-    prog_state: &'p ProgramState<'p, T>,
+    routines: &'p1 Vec<Routine>,
+    prog_state: &'p1 ProgramState<'p1, 'p2, T>,
 }
 
-fn treewalk_multi_threaded<'p, T: crate::SyncWrite>(
+fn treewalk_multi_threaded<'p1, 'p2, T: crate::SyncWrite>(
     args: &Args,
-    routines: &'p Vec<Routine>,
+    routines: &'p1 Vec<Routine>,
     f: FileState,
-    p: &'p ProgramState<'p, T>,
+    p: &'p1 ProgramState<'p1, 'p2, T>,
 ) {
     let mut workers: Vec<Worker<PathBuf>> = Vec::new();
     let mut stealers: Vec<Stealer<PathBuf>> = Vec::new();

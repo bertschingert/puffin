@@ -1,6 +1,6 @@
 use std::cell::OnceCell;
 
-use crate::program_state::ProgramState;
+use crate::program_state::{ProgramState, VariableState};
 use crate::treewalk::*;
 use crate::types::*;
 
@@ -29,14 +29,14 @@ impl FileState {
     }
 }
 
-pub struct Program<'a, T: crate::SyncWrite> {
+pub struct Program<'a, 'b, T: crate::SyncWrite> {
     pub begin: Option<Action>,
     pub end: Option<Action>,
     pub routines: Vec<Routine>,
-    pub prog_state: ProgramState<'a, T>,
+    pub prog_state: ProgramState<'a, 'b, T>,
 }
 
-impl<'a, T: crate::SyncWrite> Program<'a, T> {
+impl<'a, 'b, T: crate::SyncWrite> Program<'a, 'b, T> {
     pub fn run(&'a self, args: &crate::Args) -> crate::Result<()> {
         let path = &args.path;
 
@@ -78,24 +78,24 @@ impl Routine {
     }
 }
 
-pub fn run_routines<'a, T: crate::SyncWrite>(
+pub fn run_routines<'a, 'b, T: crate::SyncWrite>(
     routines: &Vec<Routine>,
     f: &FileState,
-    p: &ProgramState<'a, T>,
+    p: &ProgramState<'a, 'b, T>,
 ) -> crate::Result<()> {
     run_routines_inner(routines, f, p)
         .inspect_err(|e| eprintln!("Could not run program on {:?}: {e}", f.path.display()))
 }
 
-fn run_routines_inner<'a, T: crate::SyncWrite>(
+fn run_routines_inner<'a, 'b, T: crate::SyncWrite>(
     routines: &Vec<Routine>,
     f: &FileState,
-    p: &ProgramState<'a, T>,
+    p: &ProgramState<'a, 'b, T>,
 ) -> crate::Result<()> {
     for routine in routines.iter() {
         match &routine.cond {
             Some(cond) => {
-                if cond.expr.evaluate(Some(f), p, None)?.is_truthy() {
+                if cond.expr.evaluate(Some(f), p.vars())?.is_truthy() {
                     routine.action.interpret(Some(f), p)?;
                 }
             }
@@ -125,19 +125,19 @@ impl Statement {
     ) -> crate::Result<()> {
         match self {
             Statement::Assignment(a) => {
-                p.set_variable_expression(a.id.id, f, &a.val)?;
+                p.vars().set_variable_expression(a.id.id, f, &a.val)?;
             }
             Statement::Print(exprs) => {
                 let mut exprs = exprs.iter();
                 let mut s = match exprs.nth(0) {
-                    Some(expr) => format!("{}", expr.evaluate(f, p, None)?),
+                    Some(expr) => format!("{}", expr.evaluate(f, p.vars())?),
                     None => {
                         let _ = p.out.write("\n".as_bytes());
                         return Ok(());
                     }
                 };
                 for expr in exprs {
-                    s.push_str(&format!(" {}", expr.evaluate(f, p, None)?));
+                    s.push_str(&format!(" {}", expr.evaluate(f, p.vars())?));
                 }
                 s.push('\n');
                 let _ = p.out.write(s.as_bytes());
@@ -203,14 +203,9 @@ pub struct BinaryOp {
 }
 
 impl BinaryOp {
-    fn evaluate<T: crate::SyncWrite>(
-        &self,
-        f: Option<&FileState>,
-        p: &ProgramState<T>,
-        with_vars: Option<&Vec<i64>>,
-    ) -> crate::Result<Value> {
-        let l = self.left.evaluate(f, p, with_vars)?;
-        let r = self.right.evaluate(f, p, with_vars)?;
+    fn evaluate(&self, f: Option<&FileState>, vars: &VariableState) -> crate::Result<Value> {
+        let l = self.left.evaluate(f, vars)?;
+        let r = self.right.evaluate(f, vars)?;
 
         Ok(self.kind.evaluate(l, r))
     }
@@ -272,22 +267,13 @@ pub enum Expression {
 }
 
 impl Expression {
-    /// Evaluate an expression within the context of the given `FileState` and `ProgramState`.
-    ///
-    /// If the expression is evaluated as the right-hand side of an assignment to a global variable,
-    /// then `with_vars` will be a reference to the unlocked global variables vector, so that any
-    /// globals that are evaluated use the already-unlocked vector.
-    pub fn evaluate<T: crate::SyncWrite>(
-        &self,
-        f: Option<&FileState>,
-        p: &ProgramState<T>,
-        with_vars: Option<&Vec<i64>>,
-    ) -> crate::Result<Value> {
+    /// Evaluate an expression within the context of the given `FileState` and `VariableState`.
+    pub fn evaluate(&self, f: Option<&FileState>, vars: &VariableState) -> crate::Result<Value> {
         Ok(match self {
-            Expression::Bin(op) => op.evaluate(f, p, with_vars)?,
+            Expression::Bin(op) => op.evaluate(f, vars)?,
             Expression::Attr(attr) => attr.evaluate(f)?,
             Expression::Atom(v) => v.clone(),
-            Expression::Var(var) => var.evaluate(p, with_vars),
+            Expression::Var(var) => var.evaluate(vars),
         })
     }
 }
