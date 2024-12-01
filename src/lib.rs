@@ -22,16 +22,28 @@ pub struct Args {
 pub fn driver<T: crate::SyncWrite>(args: &crate::Args, out: &mut T) {
     let scanner = Scanner::new(&args.prog);
     let mut comp = Compiler::new(scanner);
-    let prog = comp.compile(out);
+    let prog = match comp.compile(out) {
+        Ok(prog) => prog,
+        Err(e) => {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
+    };
 
     let _ = prog.run(args);
 }
 
 #[derive(Debug)]
 pub enum Error {
-    CompileError(Token),
+    CompileError((String, Token)),
     AttributeInBeginOrEnd,
     IoError(std::io::ErrorKind),
+}
+
+impl Error {
+    pub fn compile_error(msg: &str, t: &Token) -> Self {
+        Error::CompileError((msg.to_string(), t.clone()))
+    }
 }
 
 impl std::error::Error for Error {}
@@ -45,7 +57,9 @@ impl std::convert::From<&std::io::Error> for Error {
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Error::CompileError(tok) => write!(f, "Error: unexpected token: {:?}", tok),
+            Error::CompileError((msg, tok)) => {
+                write!(f, "Error: {msg}\nunexpected token: {:?}", tok)
+            }
             Error::AttributeInBeginOrEnd => write!(
                 f,
                 "Error: attempt to query a file attribute in a BEGIN or END block."

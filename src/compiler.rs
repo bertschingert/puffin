@@ -28,7 +28,10 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    pub fn compile<'b, 'c, T: crate::SyncWrite>(&mut self, out: &'b mut T) -> Program<'b, 'c, T> {
+    pub fn compile<'b, 'c, T: crate::SyncWrite>(
+        &mut self,
+        out: &'b mut T,
+    ) -> crate::Result<Program<'b, 'c, T>> {
         self.next();
 
         let mut begin = None;
@@ -40,14 +43,14 @@ impl<'a> Compiler<'a> {
                 Token::Begin => {
                     self.next();
                     self.eat(Token::LeftBrace);
-                    begin = Some(self.action());
+                    begin = Some(self.action()?);
                 }
                 Token::End => {
                     self.next();
                     self.eat(Token::LeftBrace);
-                    end = Some(self.action());
+                    end = Some(self.action()?);
                 }
-                _ => routines.push(self.routine()),
+                _ => routines.push(self.routine()?),
             };
         }
 
@@ -60,14 +63,14 @@ impl<'a> Compiler<'a> {
         };
 
         let num_scalars =
-            analysis::analyze(&self.known_arrays, &mut begin, &mut end, &mut routines).unwrap();
+            analysis::analyze(&self.known_arrays, &mut begin, &mut end, &mut routines)?;
 
-        Program {
+        Ok(Program {
             begin,
             end,
             routines,
             prog_state: ProgramState::new(num_scalars, self.num_arrays, out),
-        }
+        })
     }
 
     fn eat(&mut self, tok: Token) {
@@ -86,44 +89,44 @@ impl<'a> Compiler<'a> {
         &self.current
     }
 
-    fn routine(&mut self) -> Routine {
+    fn routine(&mut self) -> crate::Result<Routine> {
         let cond = match self.peek() {
             Token::LeftBrace => None,
             _ => Some(Condition {
-                expr: self.expression(0),
+                expr: self.expression(0)?,
             }),
         };
 
         let action = match self.peek() {
             Token::LeftBrace => {
                 self.next();
-                self.action()
+                self.action()?
             }
             Token::Eof => Action::new(None),
             tok => panic!("Unexpected token: {:?}", tok),
         };
 
-        Routine::new(cond, action)
+        Ok(Routine::new(cond, action))
     }
 
-    fn action(&mut self) -> Action {
-        match self.peek() {
+    fn action(&mut self) -> crate::Result<Action> {
+        Ok(match self.peek() {
             Token::RightBrace => {
                 self.next();
                 Action::new(None)
             }
             _ => {
-                let action = Action::new(Some(self.statements()));
+                let action = Action::new(Some(self.statements()?));
                 self.eat(Token::RightBrace);
                 action
             }
-        }
+        })
     }
 
-    fn statements(&mut self) -> Vec<Statement> {
+    fn statements(&mut self) -> crate::Result<Vec<Statement>> {
         let mut statements = Vec::new();
         loop {
-            if let Some(st) = self.statement() {
+            if let Some(st) = self.statement()? {
                 statements.push(st);
             };
             match self.peek() {
@@ -134,50 +137,52 @@ impl<'a> Compiler<'a> {
             };
         }
 
-        statements
+        Ok(statements)
     }
 
-    fn statement(&mut self) -> Option<Statement> {
+    fn statement(&mut self) -> crate::Result<Option<Statement>> {
         let statement = match self.peek() {
             Token::Identifier(name) => {
                 let name = name.clone();
                 self.next();
-                let lhs = self.variable(name);
+                let lhs = self.variable(name)?;
                 let rhs = match self.next() {
-                    Token::Equal => self.expression(0),
-                    Token::PlusEqual => self.compound_assignment(lhs.clone(), Token::PlusEqual),
-                    Token::MinusEqual => self.compound_assignment(lhs.clone(), Token::MinusEqual),
+                    Token::Equal => self.expression(0)?,
+                    Token::PlusEqual => self.compound_assignment(lhs.clone(), Token::PlusEqual)?,
+                    Token::MinusEqual => {
+                        self.compound_assignment(lhs.clone(), Token::MinusEqual)?
+                    }
                     tok => panic!("Unexpected token: {:?}", tok),
                 };
-                Statement::Assignment(Assignment { lhs, rhs })
+                Some(Statement::Assignment(Assignment { lhs, rhs }))
             }
             Token::Print => {
                 self.next();
-                Statement::Print(self.expressions())
+                Some(Statement::Print(self.expressions()?))
             }
-            Token::RightBrace => return None,
-            Token::Semicolon => return None,
+            Token::RightBrace => None,
+            Token::Semicolon => None,
             tok => panic!("Unexpected token: {:?}", tok),
         };
 
-        Some(statement)
+        Ok(statement)
     }
 
-    fn compound_assignment(&mut self, var: Variable, tok: Token) -> Expression {
+    fn compound_assignment(&mut self, var: Variable, tok: Token) -> crate::Result<Expression> {
         let kind = match tok {
             Token::PlusEqual => OpKind::Plus,
             Token::MinusEqual => OpKind::Minus,
             _ => unreachable!(),
         };
 
-        Expression::Bin(BinaryOp {
+        Ok(Expression::Bin(BinaryOp {
             kind,
             left: Box::new(Expression::Var(var)),
-            right: Box::new(self.expression(0)),
-        })
+            right: Box::new(self.expression(0)?),
+        }))
     }
 
-    fn expressions(&mut self) -> Vec<Expression> {
+    fn expressions(&mut self) -> crate::Result<Vec<Expression>> {
         let mut exprs = Vec::new();
         loop {
             match self.peek() {
@@ -185,15 +190,15 @@ impl<'a> Compiler<'a> {
                     self.next();
                     continue;
                 }
-                Token::RightBrace => return exprs,
-                Token::Semicolon => return exprs,
-                _ => exprs.push(self.expression(0)),
+                Token::RightBrace => return Ok(exprs),
+                Token::Semicolon => return Ok(exprs),
+                _ => exprs.push(self.expression(0)?),
             }
         }
     }
 
-    fn expression(&mut self, min_precedence: u8) -> Expression {
-        let mut left = self.factor();
+    fn expression(&mut self, min_precedence: u8) -> crate::Result<Expression> {
+        let mut left = self.factor()?;
 
         let mut next = self.peek();
         loop {
@@ -206,7 +211,7 @@ impl<'a> Compiler<'a> {
 
                     self.next();
 
-                    let right = self.expression(Self::op_precedence(op));
+                    let right = self.expression(Self::op_precedence(op))?;
                     left = Expression::Bin(BinaryOp {
                         kind: op,
                         left: Box::new(left),
@@ -219,7 +224,7 @@ impl<'a> Compiler<'a> {
             }
         }
 
-        left
+        Ok(left)
     }
 
     fn op_precedence(op: OpKind) -> u8 {
@@ -236,25 +241,27 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    fn factor(&mut self) -> Expression {
-        let e = match self.next() {
-            Token::Value(v) => Expression::Atom(v.clone()),
-            Token::Attr(a) => Expression::Attr(*a),
+    fn factor(&mut self) -> crate::Result<Expression> {
+        match self.next() {
+            Token::Value(v) => Ok(Expression::Atom(v.clone())),
+            Token::Attr(a) => Ok(Expression::Attr(*a)),
             Token::Identifier(name) => {
                 let name = name.clone();
-                Expression::Var(self.variable(name))
+                Ok(Expression::Var(self.variable(name)?))
             }
-            t => panic!("Unexpected token {:?}", t),
-        };
-        e
+            t => Err(crate::Error::compile_error(
+                "Expected value, attribute, or identifier",
+                t,
+            )),
+        }
     }
 
-    fn variable(&mut self, name: String) -> Variable {
-        match self.peek() {
+    fn variable(&mut self, name: String) -> crate::Result<Variable> {
+        Ok(match self.peek() {
             Token::LeftBracket => {
                 let id = self.add_array(name);
                 self.next();
-                let e = self.expression(0);
+                let e = self.expression(0)?;
                 self.eat(Token::RightBracket);
                 Variable::ArrSub(ArraySubscript {
                     id: id,
@@ -262,7 +269,7 @@ impl<'a> Compiler<'a> {
                 })
             }
             _ => Variable::NotYetKnown(name.to_string()),
-        }
+        })
     }
 
     fn add_array(&mut self, new_array: String) -> usize {
