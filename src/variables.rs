@@ -135,7 +135,10 @@ impl LockedVars {
                 let scalars = self.scalars.lock().unwrap();
                 Value::Integer(scalars[id.id])
             }
-            Variable::Arr(id) => Value::String(format!("Array {id}")),
+            Variable::Arr(id) => {
+                let arrays = self.arrays.lock().unwrap();
+                Value::String(arrays.array_to_string(*id))
+            }
             Variable::ArrSub(arr) => {
                 let scalars = self.scalars.lock().unwrap();
                 let arrays = self.arrays.lock().unwrap();
@@ -197,6 +200,19 @@ impl Arrays {
         }
     }
 
+    fn array_to_string(&self, id: usize) -> String {
+        let mut s = String::new();
+        let mut array = self.arrs[id].iter();
+        match array.nth(0) {
+            Some((k, v)) => s.push_str(&format!("{}: {}", k, v)),
+            None => return s,
+        };
+        for (k, v) in array {
+            s.push_str(&format!("\n{}: {}", k, v));
+        }
+        s
+    }
+
     /// Gets a value from an associate array by evaluating the subscript and looking up the entry
     /// in the underlying hashmap for that value.
     ///
@@ -210,7 +226,6 @@ impl Arrays {
         s: &VariableState,
         arr: &ArraySubscript,
     ) -> crate::Result<Value> {
-        eprintln!("Evaluating array subscript: {:?}", arr.subscript);
         Ok(Value::Integer(
             match self.arrs[arr.id].get(&arr.subscript.evaluate(f, s)?) {
                 Some(v) => *v,
