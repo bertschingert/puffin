@@ -195,7 +195,7 @@ impl Action {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct BinaryOp {
     pub kind: OpKind,
     pub left: Box<Expression>,
@@ -258,7 +258,7 @@ impl OpKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Expression {
     Bin(BinaryOp),
     Attr(Attribute),

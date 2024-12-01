@@ -88,7 +88,7 @@ impl Attribute {
 }
 
 /// A Variable can be either a simple identifier, or an array name together with a subscript.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Variable {
     Id(Identifier),
     Arr(ArraySubscript),
@@ -115,7 +115,7 @@ pub struct Identifier {
     pub id: usize,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ArraySubscript {
     pub id: usize,
     pub subscript: Box<Expression>,

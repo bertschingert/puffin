@@ -49,7 +49,7 @@ impl<'a> VariableState<'a> {
     pub fn get_variable(&self, f: Option<&FileState>, var: &Variable) -> crate::Result<Value> {
         Ok(Value::Integer(match self {
             VariableState::Locked(l) => l.get_variable(f, self, var)?,
-            VariableState::Unlocked(u) => u.get_variable(var),
+            VariableState::Unlocked(u) => u.get_variable(f, var)?,
         }))
     }
 
@@ -66,23 +66,28 @@ impl<'a> VariableState<'a> {
     }
 }
 
+#[derive(Clone)]
 pub struct UnlockedVars<'a> {
     vars: &'a Vec<i64>,
+    arrays: &'a Arrays,
 }
 
 impl<'a> UnlockedVars<'a> {
-    fn get_variable(&self, var: &Variable) -> i64 {
-        match var {
+    fn get_variable(&self, f: Option<&FileState>, var: &Variable) -> crate::Result<i64> {
+        Ok(match var {
             Variable::Id(id) => self.vars[id.id],
-            Variable::Arr(_) => {
-                todo!("Cannot yet evaluate an array value on the RHS of an assignment")
+            Variable::Arr(arr) => {
+                self.arrays
+                    .get_variable(f, &VariableState::Unlocked(self.clone()), arr)?
             }
-        }
+        })
     }
 }
 
 pub struct LockedVars {
     /// Vector of values of variables
+    // XXX: rename vars to scalars?
+    // XXX: only us a single mutex for both of these -- since we'll always be locking both anyways?
     vars: Mutex<Vec<i64>>,
     arrays: Mutex<Arrays>,
 }
@@ -91,7 +96,8 @@ impl LockedVars {
     fn new(num_vars: usize) -> Self {
         LockedVars {
             vars: Mutex::new(vec![0; num_vars]),
-            arrays: Mutex::new(Arrays::new(0)),
+            // TODO: proper size for var and arrays mutex
+            arrays: Mutex::new(Arrays::new(num_vars)),
         }
     }
 
@@ -107,7 +113,7 @@ impl LockedVars {
                 vars[id.id]
             }
             Variable::Arr(arr) => {
-                let mut arrays = self.arrays.lock().unwrap();
+                let arrays = self.arrays.lock().unwrap();
                 arrays.get_variable(f, s, arr)?
             }
         })
@@ -119,14 +125,28 @@ impl LockedVars {
         f: Option<&FileState>,
         expr: &Expression,
     ) -> crate::Result<()> {
+        let mut vars = self.vars.lock().unwrap();
+        let mut arrays = self.arrays.lock().unwrap();
+        let unlocked = UnlockedVars {
+            vars: &*vars,
+            arrays: &*arrays,
+        };
+        let new = expr.evaluate(f, &VariableState::Unlocked(unlocked))?;
+
         match assignee {
             Variable::Id(id) => {
-                let mut vars = self.vars.lock().unwrap();
-                let unlocked = UnlockedVars { vars: &*vars };
-                let new = expr.evaluate(f, &VariableState::Unlocked(unlocked))?;
                 vars[id.id] = new.to_integer();
             }
-            Variable::Arr(_) => todo!(),
+            Variable::Arr(arr) => {
+                let unlocked = UnlockedVars {
+                    vars: &*vars,
+                    arrays: &*arrays,
+                };
+                let subscript = arr
+                    .subscript
+                    .evaluate(f, &VariableState::Unlocked(unlocked))?;
+                arrays.set_variable(arr.id, subscript, new);
+            }
         };
 
         Ok(())
@@ -152,13 +172,23 @@ impl Arrays {
     /// Fails if evaluating the subscript expression fails, which can occur if it has to do
     /// filesystem I/O.
     fn get_variable(
-        &mut self,
+        &self,
         f: Option<&FileState>,
         s: &VariableState,
         arr: &ArraySubscript,
     ) -> crate::Result<i64> {
-        Ok(*self.arrs[arr.id]
-            .entry(arr.subscript.evaluate(f, s)?)
-            .or_insert(0))
+        Ok(
+            match self.arrs[arr.id].get(&arr.subscript.evaluate(f, s)?) {
+                Some(v) => *v,
+                _ => 0,
+            },
+        )
+    }
+
+    /// Sets a value in an associative array.
+    fn set_variable(&mut self, id: usize, subscript: Value, new: Value) {
+        self.arrs[id]
+            .entry(subscript)
+            .insert_entry(new.to_integer());
     }
 }

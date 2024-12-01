@@ -75,3 +75,32 @@ fn count_files_by_size() {
 
     state.cleanup();
 }
+
+#[test]
+fn count_files_arrays() {
+    let state = TestState::setup("count_files_arrays").unwrap();
+
+    state
+        .make_tree("size_2", 2, 2, 2, Some(Metadata { size: 2 }))
+        .unwrap();
+
+    state
+        .make_tree("size_3", 2, 2, 3, Some(Metadata { size: 3 }))
+        .unwrap();
+
+    let dir = state.test_subdir();
+
+    let args = Args {
+        path: dir,
+        prog: ".size == 3 { arr[\"three\"] += 1} .size == 2 { arr[\"two\"] += 1 }  end {print arr[\"three\"], arr[\"two\"]  }".to_string(),
+        n_threads: 8,
+    };
+
+    let mut buf = Buffer::new();
+    puffin::driver(&args, &mut buf);
+
+    buf.trim_newline();
+    assert_eq!(buf, "18 12");
+
+    state.cleanup();
+}

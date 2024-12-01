@@ -19,7 +19,7 @@ pub struct TestState<'a> {
 }
 
 impl<'a> TestState<'a> {
-    pub fn setup(test_name: &'a str) -> std::io::Result<TestState> {
+    pub fn setup(test_name: &'a str) -> std::io::Result<TestState<'a>> {
         let subdir = PathBuf::from(TEST_DIR).join(test_name);
 
         let _ = std::fs::create_dir(TEST_DIR);

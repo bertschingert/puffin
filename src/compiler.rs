@@ -125,24 +125,22 @@ impl<'a> Compiler<'a> {
     fn statement(&mut self) -> Statement {
         match self.next() {
             Token::Identifier(id) => {
-                let id = Identifier { id: *id };
-                let val = match self.next() {
+                let id = *id;
+                let lhs = self.variable(id);
+                let rhs = match self.next() {
                     Token::Equal => self.expression(0),
-                    Token::PlusEqual => self.compound_assignment(id, Token::PlusEqual),
-                    Token::MinusEqual => self.compound_assignment(id, Token::MinusEqual),
+                    Token::PlusEqual => self.compound_assignment(lhs.clone(), Token::PlusEqual),
+                    Token::MinusEqual => self.compound_assignment(lhs.clone(), Token::MinusEqual),
                     tok => panic!("Unexpected token: {:?}", tok),
                 };
-                Statement::Assignment(Assignment {
-                    lhs: Variable::Id(id),
-                    rhs: val,
-                })
+                Statement::Assignment(Assignment { lhs, rhs })
             }
             Token::Print => Statement::Print(self.expressions()),
             tok => panic!("Unexpected token: {:?}", tok),
         }
     }
 
-    fn compound_assignment(&mut self, id: Identifier, tok: Token) -> Expression {
+    fn compound_assignment(&mut self, var: Variable, tok: Token) -> Expression {
         let kind = match tok {
             Token::PlusEqual => OpKind::Plus,
             Token::MinusEqual => OpKind::Minus,
@@ -151,7 +149,7 @@ impl<'a> Compiler<'a> {
 
         Expression::Bin(BinaryOp {
             kind,
-            left: Box::new(Expression::Var(Variable::Id(id))),
+            left: Box::new(Expression::Var(var)),
             right: Box::new(self.expression(0)),
         })
     }
@@ -176,7 +174,6 @@ impl<'a> Compiler<'a> {
 
         let mut next = self.peek();
         loop {
-            // while let Token::BinOp(op) = next {
             match next {
                 Token::BinOp(op) => {
                     let op = *op;
@@ -217,14 +214,30 @@ impl<'a> Compiler<'a> {
     }
 
     fn factor(&mut self) -> Expression {
-        let next = self.peek();
-        let e = match next {
+        let e = match self.next() {
             Token::Value(v) => Expression::Atom(v.clone()),
             Token::Attr(a) => Expression::Attr(*a),
-            Token::Identifier(id) => Expression::Var(Variable::Id(Identifier { id: *id })),
+            Token::Identifier(id) => {
+                let id = *id;
+                Expression::Var(self.variable(id))
+            }
             t => panic!("Unexpected token {:?}", t),
         };
-        self.next();
         e
+    }
+
+    fn variable(&mut self, id: usize) -> Variable {
+        match self.peek() {
+            Token::LeftBracket => {
+                self.next();
+                let e = self.expression(0);
+                self.eat(Token::RightBracket);
+                Variable::Arr(ArraySubscript {
+                    id: id,
+                    subscript: Box::new(e),
+                })
+            }
+            _ => Variable::Id(Identifier { id: id }),
+        }
     }
 }
