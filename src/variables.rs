@@ -7,8 +7,8 @@ use crate::types::*;
 /// A Variable can be either a simple identifier, or an array name together with a subscript.
 #[derive(Clone, Debug)]
 pub enum Variable {
-    Id(Identifier),
-    Arr(ArraySubscript),
+    Scalar(Identifier),
+    ArrSub(ArraySubscript),
 }
 
 impl Variable {
@@ -20,8 +20,8 @@ impl Variable {
 impl std::fmt::Display for Variable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Variable::Id(id) => write!(f, "Var({})", id.id),
-            Variable::Arr(arr) => write!(f, "Var({})[{}]", arr.id, arr.subscript),
+            Variable::Scalar(id) => write!(f, "Var({})", id.id),
+            Variable::ArrSub(arr) => write!(f, "Var({})[{}]", arr.id, arr.subscript),
         }
     }
 }
@@ -88,8 +88,8 @@ pub struct UnlockedVars<'a> {
 impl<'a> UnlockedVars<'a> {
     fn get_variable(&self, f: Option<&FileState>, var: &Variable) -> crate::Result<i64> {
         Ok(match var {
-            Variable::Id(id) => self.scalars[id.id],
-            Variable::Arr(arr) => {
+            Variable::Scalar(id) => self.scalars[id.id],
+            Variable::ArrSub(arr) => {
                 self.arrays
                     .get_variable(f, &VariableState::Unlocked(self.clone()), arr)?
             }
@@ -120,11 +120,11 @@ impl LockedVars {
         var: &Variable,
     ) -> crate::Result<i64> {
         Ok(match var {
-            Variable::Id(id) => {
+            Variable::Scalar(id) => {
                 let scalars = self.scalars.lock().unwrap();
                 scalars[id.id]
             }
-            Variable::Arr(arr) => {
+            Variable::ArrSub(arr) => {
                 let arrays = self.arrays.lock().unwrap();
                 arrays.get_variable(f, s, arr)?
             }
@@ -146,10 +146,10 @@ impl LockedVars {
         let new = expr.evaluate(f, &VariableState::Unlocked(unlocked))?;
 
         match assignee {
-            Variable::Id(id) => {
+            Variable::Scalar(id) => {
                 scalars[id.id] = new.to_integer();
             }
-            Variable::Arr(arr) => {
+            Variable::ArrSub(arr) => {
                 let unlocked = UnlockedVars {
                     scalars: &*scalars,
                     arrays: &*arrays,

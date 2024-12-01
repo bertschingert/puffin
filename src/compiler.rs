@@ -232,12 +232,12 @@ impl<'a> Compiler<'a> {
                 self.next();
                 let e = self.expression(0);
                 self.eat(Token::RightBracket);
-                Variable::Arr(ArraySubscript {
+                Variable::ArrSub(ArraySubscript {
                     id: id,
                     subscript: Box::new(e),
                 })
             }
-            _ => Variable::Id(Identifier { id: id }),
+            _ => Variable::Scalar(Identifier { id: id }),
         }
     }
 }
