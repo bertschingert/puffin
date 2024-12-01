@@ -242,3 +242,86 @@ fn print_statements() {
         ExpectedOutput::String("hey there\nsize: 69\n"),
     );
 }
+
+#[test]
+fn variables() {
+    test_one_file_with_program(
+        "variables",
+        None,
+        "{ var1 = 1; var2 = 2} end {print var1, var2}",
+        ExpectedOutput::String("1 2\n"),
+    );
+
+    test_one_file_with_program(
+        "variables",
+        None,
+        "{ var1 = 1; var2 = 2; var1 = var2} end {print var1, var2}",
+        ExpectedOutput::String("2 2\n"),
+    );
+
+    test_one_file_with_program(
+        "variables",
+        None,
+        "begin {var = 1} var { print var + 2 }",
+        ExpectedOutput::String("3\n"),
+    );
+
+    test_one_file_with_program(
+        "variables",
+        None,
+        "begin {var = 0} var { print var + 2 }",
+        ExpectedOutput::String(""),
+    );
+
+    test_one_file_with_program(
+        "variables",
+        None,
+        "begin {var1 = 1; var2 = 2} var2 - var1 { print var1 + var2 }",
+        ExpectedOutput::String("3\n"),
+    );
+}
+
+#[test]
+fn arrays() {
+    test_one_file_with_program(
+        "arrays",
+        None,
+        "{ arr[1] = 1; arr2[2] = 2} end {print arr[1], arr2[2]}",
+        ExpectedOutput::String("1 2\n"),
+    );
+
+    test_one_file_with_program(
+        "arrays",
+        None,
+        "{ arr[1] = 1; arr[\"key\"] = 2; arr[1] = arr[\"key\"]} end {print arr[1], arr[\"key\"]}",
+        ExpectedOutput::String("2 2\n"),
+    );
+
+    test_one_file_with_program(
+        "arrays",
+        None,
+        "{ arr[1] = 1} arr {print arr[1]}",
+        ExpectedOutput::String("1\n"),
+    );
+
+    test_one_file_with_program(
+        "arrays",
+        None,
+        "{ arr[1] = 1} arr[\"key\"] {print \"output\"}",
+        ExpectedOutput::String(""),
+    );
+
+    test_one_file_with_program(
+        "arrays",
+        None,
+        "{ arr[1] = 1} arr[\"key\"] + arr[1] {print \"output\"}",
+        ExpectedOutput::String("output\n"),
+    );
+
+    test_one_file_with_program(
+        "arrays",
+        None,
+        "{arr[1] = 1; arr2[arr[1]] = 2; arr[1] += arr2[arr[1]]} end {print arr2[arr[1]], arr2[1], arr[1]}",
+        ExpectedOutput::String("0 2 3\n"),
+    );
+}

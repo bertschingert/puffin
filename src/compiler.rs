@@ -134,6 +134,8 @@ impl<'a> Compiler<'a> {
 
         statements
     }
+
+    // TODO: allow 'empty' statements, so that for example "{ print var; }" will compile
     fn statement(&mut self) -> Statement {
         match self.next() {
             Token::Identifier(name) => {

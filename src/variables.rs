@@ -70,7 +70,7 @@ impl<'a> VariableState<'a> {
     /// subscript includes a file attribute.
     pub fn get_variable(&self, f: Option<&FileState>, var: &Variable) -> crate::Result<Value> {
         Ok(match self {
-            VariableState::Locked(l) => l.get_variable(f, self, var)?,
+            VariableState::Locked(l) => l.get_variable(f, var)?,
             VariableState::Unlocked(u) => u.get_variable(f, var)?,
         })
     }
@@ -126,12 +126,7 @@ impl LockedVars {
         }
     }
 
-    fn get_variable(
-        &self,
-        f: Option<&FileState>,
-        s: &VariableState,
-        var: &Variable,
-    ) -> crate::Result<Value> {
+    fn get_variable(&self, f: Option<&FileState>, var: &Variable) -> crate::Result<Value> {
         Ok(match var {
             Variable::NotYetKnown(name) => {
                 panic!("Attempted to use unresolved variable \"{name}\".")
@@ -142,8 +137,13 @@ impl LockedVars {
             }
             Variable::Arr(id) => Value::String(format!("Array {id}")),
             Variable::ArrSub(arr) => {
+                let scalars = self.scalars.lock().unwrap();
                 let arrays = self.arrays.lock().unwrap();
-                arrays.get_variable(f, s, arr)?
+                let unlocked = UnlockedVars {
+                    scalars: &*scalars,
+                    arrays: &*arrays,
+                };
+                arrays.get_variable(f, &VariableState::Unlocked(unlocked), arr)?
             }
         })
     }
@@ -210,6 +210,7 @@ impl Arrays {
         s: &VariableState,
         arr: &ArraySubscript,
     ) -> crate::Result<Value> {
+        eprintln!("Evaluating array subscript: {:?}", arr.subscript);
         Ok(Value::Integer(
             match self.arrs[arr.id].get(&arr.subscript.evaluate(f, s)?) {
                 Some(v) => *v,
