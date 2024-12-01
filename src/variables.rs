@@ -8,6 +8,7 @@ use crate::types::*;
 #[derive(Clone, Debug)]
 pub enum Variable {
     Scalar(Identifier),
+    Arr(usize),
     ArrSub(ArraySubscript),
 }
 
@@ -21,7 +22,8 @@ impl std::fmt::Display for Variable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Variable::Scalar(id) => write!(f, "Var({})", id.id),
-            Variable::ArrSub(arr) => write!(f, "Var({})[{}]", arr.id, arr.subscript),
+            Variable::Arr(id) => write!(f, "Array({})", id),
+            Variable::ArrSub(arr) => write!(f, "Array({})[{}]", arr.id, arr.subscript),
         }
     }
 }
@@ -60,10 +62,10 @@ impl<'a> VariableState<'a> {
     /// This can fail if getting the value has to do filesystem I/O, for example, if an array
     /// subscript includes a file attribute.
     pub fn get_variable(&self, f: Option<&FileState>, var: &Variable) -> crate::Result<Value> {
-        Ok(Value::Integer(match self {
+        Ok(match self {
             VariableState::Locked(l) => l.get_variable(f, self, var)?,
             VariableState::Unlocked(u) => u.get_variable(f, var)?,
-        }))
+        })
     }
 
     pub fn set_variable_expression(
@@ -86,9 +88,11 @@ pub struct UnlockedVars<'a> {
 }
 
 impl<'a> UnlockedVars<'a> {
-    fn get_variable(&self, f: Option<&FileState>, var: &Variable) -> crate::Result<i64> {
+    fn get_variable(&self, f: Option<&FileState>, var: &Variable) -> crate::Result<Value> {
         Ok(match var {
-            Variable::Scalar(id) => self.scalars[id.id],
+            Variable::Scalar(id) => Value::Integer(self.scalars[id.id]),
+            // XXX: should evaluating an array to a string be allowed in a RHS?
+            Variable::Arr(_) => panic!("Cannot evaluate an array name in this context."),
             Variable::ArrSub(arr) => {
                 self.arrays
                     .get_variable(f, &VariableState::Unlocked(self.clone()), arr)?
@@ -118,12 +122,13 @@ impl LockedVars {
         f: Option<&FileState>,
         s: &VariableState,
         var: &Variable,
-    ) -> crate::Result<i64> {
+    ) -> crate::Result<Value> {
         Ok(match var {
             Variable::Scalar(id) => {
                 let scalars = self.scalars.lock().unwrap();
-                scalars[id.id]
+                Value::Integer(scalars[id.id])
             }
+            Variable::Arr(id) => Value::String(format!("Array {id}")),
             Variable::ArrSub(arr) => {
                 let arrays = self.arrays.lock().unwrap();
                 arrays.get_variable(f, s, arr)?
@@ -159,6 +164,7 @@ impl LockedVars {
                     .evaluate(f, &VariableState::Unlocked(unlocked))?;
                 arrays.set_variable(arr.id, subscript, new);
             }
+            Variable::Arr(_) => panic!("Cannot assign to an array name"),
         };
 
         Ok(())
@@ -188,13 +194,13 @@ impl Arrays {
         f: Option<&FileState>,
         s: &VariableState,
         arr: &ArraySubscript,
-    ) -> crate::Result<i64> {
-        Ok(
+    ) -> crate::Result<Value> {
+        Ok(Value::Integer(
             match self.arrs[arr.id].get(&arr.subscript.evaluate(f, s)?) {
                 Some(v) => *v,
                 _ => 0,
             },
-        )
+        ))
     }
 
     /// Sets a value in an associative array.
