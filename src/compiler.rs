@@ -313,25 +313,62 @@ mod tests {
         }
     }
 
+    fn should_error(program: &str) {
+        let s = Scanner::new(program);
+        let mut c = Compiler::new(s);
+        assert!(
+            is_error(c.compile(&mut std::io::stdout())),
+            "Program should fail to compile: '{}'",
+            program
+        );
+    }
+
     #[test]
     fn begin_and_end() {
-        let s = Scanner::new("begin +");
-        let mut c = Compiler::new(s);
-        assert!(is_error(c.compile(&mut std::io::stdout())));
-
-        let s = Scanner::new("end 12");
-        let mut c = Compiler::new(s);
-        assert!(is_error(c.compile(&mut std::io::stdout())));
+        should_error("begin }");
+        should_error("begin");
+        should_error("end 12");
+        should_error("end");
+        should_error("end[1]");
     }
 
     #[test]
     fn action_block() {
-        let s = Scanner::new("{ print 1");
-        let mut c = Compiler::new(s);
-        assert!(is_error(c.compile(&mut std::io::stdout())));
+        should_error("{ print 1");
+        should_error("1 hey");
+        should_error(" {{");
+        should_error("1 { }}");
+    }
 
-        let s = Scanner::new("1 hey");
-        let mut c = Compiler::new(s);
-        assert!(is_error(c.compile(&mut std::io::stdout())));
+    #[test]
+    fn statements() {
+        should_error("{ print hey 2");
+        should_error("{ print hey ; hey = 2 + 2");
+        should_error("{ hey = 2 + 2;");
+        should_error("{ ident 2 }");
+        should_error("{ ident += }");
+        should_error("{ ident -= ;}");
+        should_error("{ print hey; 2");
+        should_error("{ print hey; /");
+        should_error("{ print hey; .name");
+    }
+
+    #[test]
+    fn expressions() {
+        should_error("+");
+        should_error("1 +");
+        should_error("+ 1");
+        should_error("1 + 2 * ");
+        should_error("1 + .name - ");
+    }
+
+    #[test]
+    fn arrays() {
+        should_error("arr[1");
+        should_error("arr[1 + 2}");
+        should_error("arr[1 + arr[2]");
+        should_error("arr[1]]");
+        should_error("{ arr[1 = 2}");
+        should_error("{ arr[1 = 2}]");
     }
 }
