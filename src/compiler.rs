@@ -123,7 +123,9 @@ impl<'a> Compiler<'a> {
     fn statements(&mut self) -> Vec<Statement> {
         let mut statements = Vec::new();
         loop {
-            statements.push(self.statement());
+            if let Some(st) = self.statement() {
+                statements.push(st);
+            };
             match self.peek() {
                 Token::RightBrace => break,
                 // XXX: allow newline to separate statement?
@@ -135,11 +137,11 @@ impl<'a> Compiler<'a> {
         statements
     }
 
-    // TODO: allow 'empty' statements, so that for example "{ print var; }" will compile
-    fn statement(&mut self) -> Statement {
-        match self.next() {
+    fn statement(&mut self) -> Option<Statement> {
+        let statement = match self.peek() {
             Token::Identifier(name) => {
                 let name = name.clone();
+                self.next();
                 let lhs = self.variable(name);
                 let rhs = match self.next() {
                     Token::Equal => self.expression(0),
@@ -149,9 +151,16 @@ impl<'a> Compiler<'a> {
                 };
                 Statement::Assignment(Assignment { lhs, rhs })
             }
-            Token::Print => Statement::Print(self.expressions()),
+            Token::Print => {
+                self.next();
+                Statement::Print(self.expressions())
+            }
+            Token::RightBrace => return None,
+            Token::Semicolon => return None,
             tok => panic!("Unexpected token: {:?}", tok),
-        }
+        };
+
+        Some(statement)
     }
 
     fn compound_assignment(&mut self, var: Variable, tok: Token) -> Expression {
