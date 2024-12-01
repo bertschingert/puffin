@@ -1,6 +1,7 @@
 use crate::ast::*;
 use crate::types::*;
 
+// TODO: implement Display for Token to get better error messages
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     Begin,
@@ -29,7 +30,6 @@ pub struct Scanner<'a> {
     start: usize,
     current: usize,
     num_vars: usize,
-    // var_map: HashMap<&'a str, usize>,
 }
 
 impl<'a> Scanner<'a> {
@@ -40,7 +40,6 @@ impl<'a> Scanner<'a> {
             start: 0,
             current: 0,
             num_vars: 0,
-            // var_map: HashMap::new(),
         }
     }
 

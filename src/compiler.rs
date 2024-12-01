@@ -5,6 +5,10 @@ use crate::program_state::ProgramState;
 use crate::scanner::*;
 use crate::variables::*;
 
+pub fn compile_error(msg: &str, t: &Token) -> crate::Error {
+    crate::Error::CompileError((msg.to_string(), t.clone()))
+}
+
 pub struct Compiler<'a> {
     scanner: Scanner<'a>,
     current: Token,
@@ -42,12 +46,12 @@ impl<'a> Compiler<'a> {
                 Token::Eof => break,
                 Token::Begin => {
                     self.next();
-                    self.eat(Token::LeftBrace);
+                    self.eat(Token::LeftBrace, "Expected '{' after 'BEGIN'")?;
                     begin = Some(self.action()?);
                 }
                 Token::End => {
                     self.next();
-                    self.eat(Token::LeftBrace);
+                    self.eat(Token::LeftBrace, "Expected '{' after 'END'")?;
                     end = Some(self.action()?);
                 }
                 _ => routines.push(self.routine()?),
@@ -73,11 +77,13 @@ impl<'a> Compiler<'a> {
         })
     }
 
-    fn eat(&mut self, tok: Token) {
+    fn eat(&mut self, tok: Token, msg: &str) -> crate::Result<()> {
         let next = self.next();
         if *next != tok {
-            panic!("Unexpected token: {:?}", next);
+            return Err(compile_error(msg, next));
         }
+
+        Ok(())
     }
 
     fn peek(&self) -> &Token {
@@ -103,7 +109,12 @@ impl<'a> Compiler<'a> {
                 self.action()?
             }
             Token::Eof => Action::new(None),
-            tok => panic!("Unexpected token: {:?}", tok),
+            tok => {
+                return Err(compile_error(
+                    "Expected '{' or end of input after a condition",
+                    tok,
+                ))
+            }
         };
 
         Ok(Routine::new(cond, action))
@@ -117,7 +128,7 @@ impl<'a> Compiler<'a> {
             }
             _ => {
                 let action = Action::new(Some(self.statements()?));
-                self.eat(Token::RightBrace);
+                self.eat(Token::RightBrace, "Expected '}' after end of action block")?;
                 action
             }
         })
@@ -133,7 +144,12 @@ impl<'a> Compiler<'a> {
                 Token::RightBrace => break,
                 // XXX: allow newline to separate statement?
                 Token::Semicolon => self.next(),
-                _ => panic!("Expected either ';' or '}}' after a statement."),
+                tok => {
+                    return Err(compile_error(
+                        "Expected either ';' or '}}' after a statement",
+                        tok,
+                    ))
+                }
             };
         }
 
@@ -152,7 +168,12 @@ impl<'a> Compiler<'a> {
                     Token::MinusEqual => {
                         self.compound_assignment(lhs.clone(), Token::MinusEqual)?
                     }
-                    tok => panic!("Unexpected token: {:?}", tok),
+                    tok => {
+                        return Err(compile_error(
+                            "Expected an assignment after identifier",
+                            tok,
+                        ))
+                    }
                 };
                 Some(Statement::Assignment(Assignment { lhs, rhs }))
             }
@@ -162,7 +183,7 @@ impl<'a> Compiler<'a> {
             }
             Token::RightBrace => None,
             Token::Semicolon => None,
-            tok => panic!("Unexpected token: {:?}", tok),
+            tok => return Err(compile_error("Expected beginning of statement", tok)),
         };
 
         Ok(statement)
@@ -249,10 +270,7 @@ impl<'a> Compiler<'a> {
                 let name = name.clone();
                 Ok(Expression::Var(self.variable(name)?))
             }
-            t => Err(crate::Error::compile_error(
-                "Expected value, attribute, or identifier",
-                t,
-            )),
+            t => Err(compile_error("Expected value, attribute, or identifier", t)),
         }
     }
 
@@ -262,7 +280,10 @@ impl<'a> Compiler<'a> {
                 let id = self.add_array(name);
                 self.next();
                 let e = self.expression(0)?;
-                self.eat(Token::RightBracket);
+                self.eat(
+                    Token::RightBracket,
+                    "Expected ']' after array subscript expression",
+                )?;
                 Variable::ArrSub(ArraySubscript {
                     id: id,
                     subscript: Box::new(e),
@@ -277,5 +298,40 @@ impl<'a> Compiler<'a> {
             self.num_arrays += 1;
             self.num_arrays - 1
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn is_error<T>(r: crate::Result<T>) -> bool {
+        if let Err(_) = r {
+            true
+        } else {
+            false
+        }
+    }
+
+    #[test]
+    fn begin_and_end() {
+        let s = Scanner::new("begin +");
+        let mut c = Compiler::new(s);
+        assert!(is_error(c.compile(&mut std::io::stdout())));
+
+        let s = Scanner::new("end 12");
+        let mut c = Compiler::new(s);
+        assert!(is_error(c.compile(&mut std::io::stdout())));
+    }
+
+    #[test]
+    fn action_block() {
+        let s = Scanner::new("{ print 1");
+        let mut c = Compiler::new(s);
+        assert!(is_error(c.compile(&mut std::io::stdout())));
+
+        let s = Scanner::new("1 hey");
+        let mut c = Compiler::new(s);
+        assert!(is_error(c.compile(&mut std::io::stdout())));
     }
 }
