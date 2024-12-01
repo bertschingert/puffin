@@ -104,3 +104,26 @@ fn count_files_arrays() {
 
     state.cleanup();
 }
+
+#[test]
+fn count_files_arrays_2() {
+    let state = TestState::setup("count_files_arrays_2").unwrap();
+
+    state.make_tree("tree", 2, 2, 0, None).unwrap();
+
+    let dir = state.test_subdir();
+
+    let args = Args {
+        path: dir,
+        prog: "{ arr[\"numfiles\"] += 1; arr2[\"dup\"] = arr[\"numfiles\"] } end { print arr[\"numfiles\"], arr2[\"dup\"]  }".to_string(),
+        n_threads: 8,
+    };
+
+    let mut buf = Buffer::new();
+    puffin::driver(&args, &mut buf);
+
+    buf.trim_newline();
+    assert_eq!(buf, "8 8");
+
+    state.cleanup();
+}
