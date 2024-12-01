@@ -4,9 +4,12 @@ use std::sync::Mutex;
 use crate::ast::*;
 use crate::types::*;
 
-/// A Variable can be either a simple identifier, or an array name together with a subscript.
+/// A Variable can be a scalar, an array, or not yet known during the pre-inference stage.
 #[derive(Clone, Debug)]
 pub enum Variable {
+    /// A NotYetKnown variable is constructed during compilation but must be replaced with a known
+    /// variable type. Accessing a NotYetKnown variable during runtime is a bug.
+    NotYetKnown(String),
     Scalar(Identifier),
     Arr(usize),
     ArrSub(ArraySubscript),
@@ -21,6 +24,7 @@ impl Variable {
 impl std::fmt::Display for Variable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Variable::NotYetKnown(name) => write!(f, "TypeUnknown(\"{name}\")"),
             Variable::Scalar(id) => write!(f, "Var({})", id.id),
             Variable::Arr(id) => write!(f, "Array({})", id),
             Variable::ArrSub(arr) => write!(f, "Array({})[{}]", arr.id, arr.subscript),
@@ -90,6 +94,9 @@ pub struct UnlockedVars<'a> {
 impl<'a> UnlockedVars<'a> {
     fn get_variable(&self, f: Option<&FileState>, var: &Variable) -> crate::Result<Value> {
         Ok(match var {
+            Variable::NotYetKnown(name) => {
+                panic!("Attempted to use unresolved variable \"{name}\".")
+            }
             Variable::Scalar(id) => Value::Integer(self.scalars[id.id]),
             // XXX: should evaluating an array to a string be allowed in a RHS?
             Variable::Arr(_) => panic!("Cannot evaluate an array name in this context."),
@@ -124,6 +131,9 @@ impl LockedVars {
         var: &Variable,
     ) -> crate::Result<Value> {
         Ok(match var {
+            Variable::NotYetKnown(name) => {
+                panic!("Attempted to use unresolved variable \"{name}\".")
+            }
             Variable::Scalar(id) => {
                 let scalars = self.scalars.lock().unwrap();
                 Value::Integer(scalars[id.id])
@@ -151,6 +161,9 @@ impl LockedVars {
         let new = expr.evaluate(f, &VariableState::Unlocked(unlocked))?;
 
         match assignee {
+            Variable::NotYetKnown(name) => {
+                panic!("Attempted to use unresolved variable \"{name}\".")
+            }
             Variable::Scalar(id) => {
                 scalars[id.id] = new.to_integer();
             }
