@@ -68,14 +68,14 @@ impl<'a> VariableState<'a> {
 
 #[derive(Clone)]
 pub struct UnlockedVars<'a> {
-    vars: &'a Vec<i64>,
+    scalars: &'a Vec<i64>,
     arrays: &'a Arrays,
 }
 
 impl<'a> UnlockedVars<'a> {
     fn get_variable(&self, f: Option<&FileState>, var: &Variable) -> crate::Result<i64> {
         Ok(match var {
-            Variable::Id(id) => self.vars[id.id],
+            Variable::Id(id) => self.scalars[id.id],
             Variable::Arr(arr) => {
                 self.arrays
                     .get_variable(f, &VariableState::Unlocked(self.clone()), arr)?
@@ -86,16 +86,15 @@ impl<'a> UnlockedVars<'a> {
 
 pub struct LockedVars {
     /// Vector of values of variables
-    // XXX: rename vars to scalars?
     // XXX: only us a single mutex for both of these -- since we'll always be locking both anyways?
-    vars: Mutex<Vec<i64>>,
+    scalars: Mutex<Vec<i64>>,
     arrays: Mutex<Arrays>,
 }
 
 impl LockedVars {
     fn new(num_vars: usize) -> Self {
         LockedVars {
-            vars: Mutex::new(vec![0; num_vars]),
+            scalars: Mutex::new(vec![0; num_vars]),
             // TODO: proper size for var and arrays mutex
             arrays: Mutex::new(Arrays::new(num_vars)),
         }
@@ -109,8 +108,8 @@ impl LockedVars {
     ) -> crate::Result<i64> {
         Ok(match var {
             Variable::Id(id) => {
-                let vars = self.vars.lock().unwrap();
-                vars[id.id]
+                let scalars = self.scalars.lock().unwrap();
+                scalars[id.id]
             }
             Variable::Arr(arr) => {
                 let arrays = self.arrays.lock().unwrap();
@@ -125,21 +124,21 @@ impl LockedVars {
         f: Option<&FileState>,
         expr: &Expression,
     ) -> crate::Result<()> {
-        let mut vars = self.vars.lock().unwrap();
+        let mut scalars = self.scalars.lock().unwrap();
         let mut arrays = self.arrays.lock().unwrap();
         let unlocked = UnlockedVars {
-            vars: &*vars,
+            scalars: &*scalars,
             arrays: &*arrays,
         };
         let new = expr.evaluate(f, &VariableState::Unlocked(unlocked))?;
 
         match assignee {
             Variable::Id(id) => {
-                vars[id.id] = new.to_integer();
+                scalars[id.id] = new.to_integer();
             }
             Variable::Arr(arr) => {
                 let unlocked = UnlockedVars {
-                    vars: &*vars,
+                    scalars: &*scalars,
                     arrays: &*arrays,
                 };
                 let subscript = arr
