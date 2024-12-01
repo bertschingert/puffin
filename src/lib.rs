@@ -4,6 +4,7 @@ pub mod program_state;
 pub mod scanner;
 pub mod treewalk;
 pub mod types;
+pub mod variables;
 
 pub mod test_libs;
 

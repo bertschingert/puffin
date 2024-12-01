@@ -1,7 +1,6 @@
 use std::os::unix::fs::MetadataExt;
 
 use crate::ast::*;
-use crate::program_state::VariableState;
 
 #[derive(Eq, Hash, Clone, PartialEq, Debug)]
 pub enum Value {
@@ -85,38 +84,4 @@ impl Attribute {
             Attribute::Path => unreachable!(),
         })
     }
-}
-
-/// A Variable can be either a simple identifier, or an array name together with a subscript.
-#[derive(Clone, Debug)]
-pub enum Variable {
-    Id(Identifier),
-    Arr(ArraySubscript),
-}
-
-impl Variable {
-    pub fn evaluate(&self, f: Option<&FileState>, vars: &VariableState) -> crate::Result<Value> {
-        vars.get_variable(f, &self)
-    }
-}
-
-impl std::fmt::Display for Variable {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Variable::Id(id) => write!(f, "Var({})", id.id),
-            Variable::Arr(arr) => write!(f, "Var({})[{}]", arr.id, arr.subscript),
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct Identifier {
-    /// Index into variables vector.
-    pub id: usize,
-}
-
-#[derive(Clone, Debug)]
-pub struct ArraySubscript {
-    pub id: usize,
-    pub subscript: Box<Expression>,
 }

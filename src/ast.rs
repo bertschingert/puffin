@@ -1,8 +1,9 @@
 use std::cell::OnceCell;
 
-use crate::program_state::{ProgramState, VariableState};
+use crate::program_state::ProgramState;
 use crate::treewalk::*;
 use crate::types::*;
+use crate::variables::*;
 
 pub struct FileState {
     pub path: std::path::PathBuf,

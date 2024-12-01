@@ -1,7 +1,7 @@
 use crate::ast::*;
 use crate::program_state::ProgramState;
 use crate::scanner::*;
-use crate::types::*;
+use crate::variables::*;
 
 pub struct Compiler<'a> {
     scanner: Scanner<'a>,
