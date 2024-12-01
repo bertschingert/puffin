@@ -5,6 +5,8 @@ use crate::treewalk::*;
 use crate::types::*;
 use crate::variables::*;
 
+pub mod analysis;
+
 pub struct FileState {
     pub path: std::path::PathBuf,
     /// A file's metadata is checked lazily, so that the extra stat() syscall can be avoided if

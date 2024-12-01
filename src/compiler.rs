@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::ast::*;
 use crate::program_state::ProgramState;
 use crate::scanner::*;
@@ -7,6 +9,12 @@ pub struct Compiler<'a> {
     scanner: Scanner<'a>,
     current: Token,
     next: Token,
+    /// When array identifiers (e.g., `arr` in `arr["key"]`) are encountered during compiling, they
+    /// are added to the `known_arrays` map. Identifiers that are not followed by a subscript
+    /// expression are resolved to a type (`Arr` or `Scalar`) in a later pass since it's not known
+    /// immediately which type they refer to.
+    known_arrays: HashMap<String, usize>,
+    num_arrays: usize,
 }
 
 impl<'a> Compiler<'a> {
@@ -15,6 +23,8 @@ impl<'a> Compiler<'a> {
             scanner,
             current: Token::Error("uninitialized".to_string()),
             next: Token::Error("uninitialized".to_string()),
+            known_arrays: HashMap::new(),
+            num_arrays: 0,
         }
     }
 
@@ -49,13 +59,14 @@ impl<'a> Compiler<'a> {
             _ => routines,
         };
 
-        crate::analysis::analyze(&mut begin, &mut end, &mut routines).unwrap();
+        let num_scalars =
+            analysis::analyze(&self.known_arrays, &mut begin, &mut end, &mut routines).unwrap();
 
         Program {
             begin,
             end,
             routines,
-            prog_state: ProgramState::new(self.scanner.num_vars(), out),
+            prog_state: ProgramState::new(num_scalars, self.num_arrays, out),
         }
     }
 
@@ -125,9 +136,9 @@ impl<'a> Compiler<'a> {
     }
     fn statement(&mut self) -> Statement {
         match self.next() {
-            Token::Identifier(id) => {
-                let id = *id;
-                let lhs = self.variable(id);
+            Token::Identifier(name) => {
+                let name = name.clone();
+                let lhs = self.variable(name);
                 let rhs = match self.next() {
                     Token::Equal => self.expression(0),
                     Token::PlusEqual => self.compound_assignment(lhs.clone(), Token::PlusEqual),
@@ -218,18 +229,19 @@ impl<'a> Compiler<'a> {
         let e = match self.next() {
             Token::Value(v) => Expression::Atom(v.clone()),
             Token::Attr(a) => Expression::Attr(*a),
-            Token::Identifier(id) => {
-                let id = *id;
-                Expression::Var(self.variable(id))
+            Token::Identifier(name) => {
+                let name = name.clone();
+                Expression::Var(self.variable(name))
             }
             t => panic!("Unexpected token {:?}", t),
         };
         e
     }
 
-    fn variable(&mut self, id: usize) -> Variable {
+    fn variable(&mut self, name: String) -> Variable {
         match self.peek() {
             Token::LeftBracket => {
+                let id = self.add_array(name);
                 self.next();
                 let e = self.expression(0);
                 self.eat(Token::RightBracket);
@@ -238,7 +250,14 @@ impl<'a> Compiler<'a> {
                     subscript: Box::new(e),
                 })
             }
-            _ => Variable::Scalar(Identifier { id: id }),
+            _ => Variable::NotYetKnown(name.to_string()),
         }
+    }
+
+    fn add_array(&mut self, new_array: String) -> usize {
+        *self.known_arrays.entry(new_array).or_insert_with(|| {
+            self.num_arrays += 1;
+            self.num_arrays - 1
+        })
     }
 }

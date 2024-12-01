@@ -1,4 +1,3 @@
-pub mod analysis;
 pub mod ast;
 pub mod compiler;
 pub mod program_state;

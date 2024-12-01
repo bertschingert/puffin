@@ -5,6 +5,8 @@ use crate::ast::*;
 use crate::types::*;
 
 /// A Variable can be a scalar, an array, or not yet known during the pre-inference stage.
+// XXX: should this be broken out into a separate AssignableVariable enum that hold Scalar and
+// ArrSub variants, so that `struct Assignment` can't hold an unassignable variable at runtime?
 #[derive(Clone, Debug)]
 pub enum Variable {
     /// A NotYetKnown variable is constructed during compilation but must be replaced with a known
@@ -32,6 +34,7 @@ impl std::fmt::Display for Variable {
     }
 }
 
+// XXX: is this necessary? maybe make Variable::Scalar just hold an usize
 #[derive(Copy, Clone, Debug)]
 pub struct Identifier {
     /// Index into variables vector.
@@ -57,8 +60,8 @@ pub enum VariableState<'a> {
 }
 
 impl<'a> VariableState<'a> {
-    pub fn new(num_vars: usize) -> Self {
-        VariableState::Locked(LockedVars::new(num_vars))
+    pub fn new(num_scalars: usize, num_arrays: usize) -> Self {
+        VariableState::Locked(LockedVars::new(num_scalars, num_arrays))
     }
 
     /// Get the value of a variable `var`, within the context of the given `FileState`.
@@ -116,11 +119,10 @@ pub struct LockedVars {
 }
 
 impl LockedVars {
-    fn new(num_vars: usize) -> Self {
+    fn new(num_scalars: usize, num_arrs: usize) -> Self {
         LockedVars {
-            scalars: Mutex::new(vec![0; num_vars]),
-            // TODO: proper size for var and arrays mutex
-            arrays: Mutex::new(Arrays::new(num_vars)),
+            scalars: Mutex::new(vec![0; num_scalars]),
+            arrays: Mutex::new(Arrays::new(num_arrs)),
         }
     }
 

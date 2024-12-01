@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::ast::*;
 use crate::types::*;
 
@@ -20,7 +18,7 @@ pub enum Token {
     Value(Value),
     BinOp(OpKind),
     Attr(Attribute),
-    Identifier(usize),
+    Identifier(String),
     Eof,
     Error(String),
 }
@@ -31,7 +29,7 @@ pub struct Scanner<'a> {
     start: usize,
     current: usize,
     num_vars: usize,
-    var_map: HashMap<&'a str, usize>,
+    // var_map: HashMap<&'a str, usize>,
 }
 
 impl<'a> Scanner<'a> {
@@ -42,7 +40,7 @@ impl<'a> Scanner<'a> {
             start: 0,
             current: 0,
             num_vars: 0,
-            var_map: HashMap::new(),
+            // var_map: HashMap::new(),
         }
     }
 
@@ -173,14 +171,7 @@ impl<'a> Scanner<'a> {
     }
 
     fn identifier(&mut self, s: &'a str) -> Token {
-        Token::Identifier(self.add_variable(s))
-    }
-
-    fn add_variable(&mut self, new_var: &'a str) -> usize {
-        *self.var_map.entry(new_var).or_insert_with(|| {
-            self.num_vars += 1;
-            self.num_vars - 1
-        })
+        Token::Identifier(s.to_string())
     }
 
     fn number(&mut self) -> Token {
@@ -301,11 +292,11 @@ mod tests {
     fn identifiers() {
         let mut s = Scanner::new("id id2 id .size id2");
 
-        assert_eq!(s.next_token(), Token::Identifier(0));
-        assert_eq!(s.next_token(), Token::Identifier(1));
-        assert_eq!(s.next_token(), Token::Identifier(0));
+        assert_eq!(s.next_token(), Token::Identifier("id".to_string()));
+        assert_eq!(s.next_token(), Token::Identifier("id2".to_string()));
+        assert_eq!(s.next_token(), Token::Identifier("id".to_string()));
         assert_eq!(s.next_token(), Token::Attr(Attribute::Size));
-        assert_eq!(s.next_token(), Token::Identifier(1));
+        assert_eq!(s.next_token(), Token::Identifier("id2".to_string()));
         assert_eq!(s.next_token(), Token::Eof);
     }
 

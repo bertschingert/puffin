@@ -9,9 +9,9 @@ pub struct ProgramState<'a, 'b, T: crate::SyncWrite> {
 
 // XXX: use more descriptive lifetime names for this...
 impl<'a, 'b, T: crate::SyncWrite> ProgramState<'a, 'b, T> {
-    pub fn new(num_vars: usize, out: &'a mut T) -> Self {
+    pub fn new(num_scalars: usize, num_arrays: usize, out: &'a mut T) -> Self {
         ProgramState {
-            vars: VariableState::new(num_vars),
+            vars: VariableState::new(num_scalars, num_arrays),
             out,
         }
     }
