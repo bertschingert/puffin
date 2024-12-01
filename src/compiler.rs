@@ -42,18 +42,19 @@ impl<'a> Compiler<'a> {
         }
 
         // If no routines were provided in the input, then create a single default routine:
-        let routines = match routines.len() {
+        let mut routines = match routines.len() {
             0 => {
                 vec![Routine::new(None, Action { statements: None })]
             }
             _ => routines,
         };
 
+        crate::analysis::analyze(&mut begin, &mut end, &mut routines).unwrap();
+
         Program {
             begin,
             end,
             routines,
-            // XXX: find a better way to move prog_state out...
             prog_state: ProgramState::new(self.scanner.num_vars(), out),
         }
     }
