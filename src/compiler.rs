@@ -38,6 +38,7 @@ impl<'a> Compiler<'a> {
     ) -> crate::Result<Program<'b, 'c, T>> {
         self.next();
 
+        // XXX: allow multiple begin and end routines
         let mut begin = None;
         let mut end = None;
         let mut routines = Vec::new();

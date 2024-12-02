@@ -1,0 +1,42 @@
+Puffin Grammar
+==============
+
+program			= {routine}
+
+routine 		= begin_routine
+			| end_routine
+			| routine
+
+begin_routine		= "begin", action
+
+end_routine		= "end", action
+
+routine			= [condition], [action]
+
+condition		= expression
+
+action			= "{", [statement_list], "}"
+
+statement_list 		= [statement], [{";", [statement]}]
+
+statement		= print_statement
+			| assignment_statement
+
+print_statement		= "print", expression
+
+assignment_statement	= identifier, "=", expression
+
+expression		= identifier
+			| number
+			| expression, binop, expression
+
+identifier		= scalar_identifier
+			| array_identifier
+
+array_identifier	= scalar_identifier, "[", expression, "]"
+
+scalar_identifier	= what it sounds like
+
+number			= what it sounds like (positive integers only, so far)
+
+binop			= "+" | "-" | "*" | "/"
