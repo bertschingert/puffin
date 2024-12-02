@@ -208,6 +208,19 @@ impl Buffer {
             None => panic!("Expected at least one line in string."),
         }
     }
+
+    /// Consumes the buffer, returning a vector of the lines as Strings in sorted order.
+    pub fn sorted_lines(self) -> Vec<String> {
+        let mut buf = self
+            .data
+            .into_inner()
+            .unwrap()
+            .lines()
+            .map(|s| s.unwrap())
+            .collect::<Vec<String>>();
+        buf.sort();
+        buf
+    }
 }
 
 impl crate::SyncWrite for Buffer {

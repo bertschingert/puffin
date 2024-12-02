@@ -91,7 +91,7 @@ fn count_files_arrays() {
     let dir = state.test_subdir();
 
     let args = Args {
-        path: dir,
+        path: dir.clone(),
         prog: ".size == 3 { arr[\"three\"] += 1} .size == 2 { arr[\"two\"] += 1 }  end {print arr[\"three\"], arr[\"two\"]  }".to_string(),
         n_threads: 8,
     };
@@ -101,6 +101,20 @@ fn count_files_arrays() {
 
     buf.trim_newline();
     assert_eq!(buf, "18 12");
+
+    let args = Args {
+        path: dir,
+        prog: ".size == 3 { arr[\"three\"] += 1} .size == 2 { arr[\"two\"] += 1 }  end {print arr}"
+            .to_string(),
+        n_threads: 8,
+    };
+
+    let mut buf = Buffer::new();
+    puffin::driver(&args, &mut buf);
+
+    let lines = buf.sorted_lines();
+    assert_eq!(&lines[0], "three: 18");
+    assert_eq!(&lines[1], "two: 12");
 
     state.cleanup();
 }
