@@ -100,7 +100,7 @@ impl<'a> UnlockedVars<'a> {
             Variable::NotYetKnown(name) => {
                 panic!("Attempted to use unresolved variable \"{name}\".")
             }
-            Variable::Scalar(id) => Value::Integer(self.scalars[id.id]),
+            Variable::Scalar(id) => Value::Int(self.scalars[id.id]),
             // XXX: should evaluating an array to a string be allowed in a RHS?
             Variable::Arr(_) => panic!("Cannot evaluate an array name in this context."),
             Variable::ArrSub(arr) => {
@@ -133,7 +133,7 @@ impl LockedVars {
             }
             Variable::Scalar(id) => {
                 let scalars = self.scalars.lock().unwrap();
-                Value::Integer(scalars[id.id])
+                Value::Int(scalars[id.id])
             }
             Variable::Arr(id) => {
                 let arrays = self.arrays.lock().unwrap();
@@ -170,7 +170,7 @@ impl LockedVars {
                 panic!("Attempted to use unresolved variable \"{name}\".")
             }
             Variable::Scalar(id) => {
-                scalars[id.id] = new.to_integer();
+                scalars[id.id] = new.to_signed_int();
             }
             Variable::ArrSub(arr) => {
                 let unlocked = UnlockedVars {
@@ -226,7 +226,7 @@ impl Arrays {
         s: &VariableState,
         arr: &ArraySubscript,
     ) -> crate::Result<Value> {
-        Ok(Value::Integer(
+        Ok(Value::Int(
             match self.arrs[arr.id].get(&arr.subscript.evaluate(f, s)?) {
                 Some(v) => *v,
                 _ => 0,
@@ -238,6 +238,6 @@ impl Arrays {
     fn set_variable(&mut self, id: usize, subscript: Value, new: Value) {
         self.arrs[id]
             .entry(subscript)
-            .insert_entry(new.to_integer());
+            .insert_entry(new.to_signed_int());
     }
 }

@@ -63,6 +63,11 @@ impl std::fmt::Display for Error {
     }
 }
 
+pub fn runtime_error(msg: &str) -> ! {
+    eprintln!("{msg}");
+    std::process::exit(1);
+}
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 // Like std::io::Write but it requires that the writer be Sync.

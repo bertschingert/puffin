@@ -191,7 +191,7 @@ impl<'a> Scanner<'a> {
                         }
                     };
 
-                    return Token::Value(Value::Integer(num));
+                    return Token::Value(Value::Int(num));
                 }
             }
         }
@@ -235,8 +235,8 @@ mod tests {
     fn numbers() {
         let mut s = Scanner::new("1 2 123a ");
 
-        assert_eq!(s.next_token(), Token::Value(Value::Integer(1)));
-        assert_eq!(s.next_token(), Token::Value(Value::Integer(2)));
+        assert_eq!(s.next_token(), Token::Value(Value::Int(1)));
+        assert_eq!(s.next_token(), Token::Value(Value::Int(2)));
         assert!(is_error_token(s.next_token()));
         assert_eq!(s.next_token(), Token::Eof);
     }

@@ -249,15 +249,15 @@ impl OpKind {
     }
 
     fn integer_to_boolean_op(l: Value, r: Value, f: fn(i64, i64) -> bool) -> Value {
-        let l = l.to_integer();
-        let r = r.to_integer();
+        let l = l.to_signed_int();
+        let r = r.to_signed_int();
         Value::Boolean(f(l, r))
     }
 
     fn integer_op(l: Value, r: Value, f: fn(i64, i64) -> i64) -> Value {
-        let l = l.to_integer();
-        let r = r.to_integer();
-        Value::Integer(f(l, r))
+        let l = l.to_signed_int();
+        let r = r.to_signed_int();
+        Value::Int(f(l, r))
     }
 }
 
