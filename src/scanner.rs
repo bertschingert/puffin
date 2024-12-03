@@ -135,12 +135,9 @@ impl<'a> Scanner<'a> {
                 _ => {
                     let a = &self.source[self.start..self.current + 1];
 
-                    return match a {
-                        ".name" => Token::Attr(Attribute::Name),
-                        ".path" => Token::Attr(Attribute::Path),
-                        ".size" => Token::Attr(Attribute::Size),
-                        ".owner" => Token::Attr(Attribute::Owner),
-                        _ => Token::Error(format!("Unknown attribute '{a}'")),
+                    return match Attribute::from_str(a) {
+                        Some(a) => Token::Attr(a),
+                        None => Token::Error(format!("Unknown attribute '{a}'")),
                     };
                 }
             }

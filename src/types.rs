@@ -1,9 +1,12 @@
 use std::os::unix::fs::MetadataExt;
+use std::os::unix::fs::FileTypeExt;
 
 use crate::ast::*;
 
 #[derive(Eq, Hash, Clone, PartialEq, Debug)]
 pub enum Value {
+    // TODO: probably need an unsigned int type, along with good rules on how/when to convert
+    // between them
     Int(i64),
     String(String),
     Boolean(bool),
@@ -185,13 +188,53 @@ impl std::fmt::Display for SpecialValue {
 /// Attributes are file metadata.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Attribute {
+    BlkSize,
+    Blocks,
+    /// Device number for the devile the file resides on
+    Dev,
+    /// Inode number
+    Ino,
+    Mode,
+    /// Filename
     Name,
-    Path,
-    Size,
+    NLink,
     Owner,
+    Group,
+    /// Full path
+    Path,
+    /// Device number of the file itself (special files)
+    RDev,
+    Size,
+    Atime,
+    Mtime,
+    Ctime,
+    // XXX: include birthtime?
+    Type,
 }
 
 impl Attribute {
+    pub fn from_str(a: &str) -> Option<Self> {
+        Some(match a {
+            ".blksize" => Attribute::BlkSize,
+            ".blocks" => Attribute::Blocks,
+            ".dev" => Attribute::Dev,
+            ".ino" => Attribute::Ino,
+            ".mode" => Attribute::Mode,
+            ".name" => Attribute::Name,
+            ".nlink" => Attribute::NLink,
+            ".owner" => Attribute::Owner,
+            ".group" => Attribute::Group,
+            ".path" => Attribute::Path,
+            ".rdev" => Attribute::RDev,
+            ".size" => Attribute::Size,
+            ".atime" => Attribute::Atime,
+            ".mtime" => Attribute::Mtime,
+            ".ctime" => Attribute::Ctime,
+            ".type" => Attribute::Type,
+            _ => return None,
+        })
+    }
+
     pub fn evaluate(&self, f: Option<&FileState>) -> crate::Result<Value> {
         match f {
             Some(f) => self.evaluate_with_file(f),
@@ -214,8 +257,39 @@ impl Attribute {
         let md = f.get_metadata().as_ref()?;
 
         Ok(match self {
+            Attribute::BlkSize => Value::Int(md.blksize().try_into().unwrap()),
+            Attribute::Blocks => Value::Int(md.blocks().try_into().unwrap()),
+            Attribute::Ino => SpecialValue::new(md.ino(), SpecialValueKind::Ino),
+            Attribute::Dev => SpecialValue::new(md.dev(), SpecialValueKind::Devno),
+            Attribute::RDev => SpecialValue::new(md.rdev(), SpecialValueKind::Devno),
+            Attribute::Mode => SpecialValue::new(md.mode().into(), SpecialValueKind::Mode),
             Attribute::Size => Value::Int(md.size().try_into().unwrap()),
+            Attribute::NLink => Value::Int(md.nlink().try_into().unwrap()),
             Attribute::Owner => SpecialValue::new(md.uid().into(), SpecialValueKind::Uid),
+            Attribute::Group => SpecialValue::new(md.gid().into(), SpecialValueKind::Uid),
+            Attribute::Atime => Value::Int(md.atime()),
+            Attribute::Ctime => Value::Int(md.ctime()),
+            Attribute::Mtime => Value::Int(md.mtime()),
+            Attribute::Type => {
+                let ty = md.file_type();
+                Value::String(
+                if ty.is_dir() {
+                    "dir"
+                } else if ty.is_file() {
+                    "file"
+                } else if ty.is_block_device() {
+                    "block"
+                } else if ty.is_char_device() {
+                    "char"
+                } else if ty.is_fifo() {
+                    "fifo"
+                } else if ty.is_socket() {
+                    "socket"
+                } else {
+                    "unknown"
+                }.to_string()
+                )
+            }
             Attribute::Name => unreachable!(),
             Attribute::Path => unreachable!(),
         })
