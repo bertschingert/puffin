@@ -210,7 +210,7 @@ impl BinaryOp {
         let l = self.left.evaluate(f, vars)?;
         let r = self.right.evaluate(f, vars)?;
 
-        Ok(self.kind.evaluate(l, r))
+        Ok(l.binary_op(r, self.kind))
     }
 }
 
@@ -225,40 +225,6 @@ pub enum OpKind {
     Minus,
     Multiply,
     Divide,
-}
-
-impl OpKind {
-    fn evaluate(&self, l: Value, r: Value) -> Value {
-        match self {
-            OpKind::EqualEqual => {
-                if l == r {
-                    Value::Boolean(true)
-                } else {
-                    Value::Boolean(false)
-                }
-            }
-            OpKind::Greater => Self::integer_to_boolean_op(l, r, |l, r| l > r),
-            OpKind::GreaterEqual => Self::integer_to_boolean_op(l, r, |l, r| l >= r),
-            OpKind::Less => Self::integer_to_boolean_op(l, r, |l, r| l < r),
-            OpKind::LessEqual => Self::integer_to_boolean_op(l, r, |l, r| l <= r),
-            OpKind::Plus => Self::integer_op(l, r, |l, r| l + r),
-            OpKind::Minus => Self::integer_op(l, r, |l, r| l - r),
-            OpKind::Multiply => Self::integer_op(l, r, |l, r| l * r),
-            OpKind::Divide => Self::integer_op(l, r, |l, r| l / r),
-        }
-    }
-
-    fn integer_to_boolean_op(l: Value, r: Value, f: fn(i64, i64) -> bool) -> Value {
-        let l = l.to_signed_int();
-        let r = r.to_signed_int();
-        Value::Boolean(f(l, r))
-    }
-
-    fn integer_op(l: Value, r: Value, f: fn(i64, i64) -> i64) -> Value {
-        let l = l.to_signed_int();
-        let r = r.to_signed_int();
-        Value::Int(f(l, r))
-    }
 }
 
 #[derive(Clone, Debug)]

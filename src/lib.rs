@@ -70,6 +70,13 @@ pub fn runtime_error(msg: &str) -> ! {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+pub fn is_error<T>(r: crate::Result<T>) -> bool {
+    match r {
+        Ok(_) => false,
+        Err(_) => true,
+    }
+}
+
 // Like std::io::Write but it requires that the writer be Sync.
 // Assumes that the type implementing SyncWrite uses interior mutability
 // so that write() doesn't require a mutable reference.

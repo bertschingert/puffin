@@ -4,7 +4,6 @@ use crate::ast::*;
 
 #[derive(Eq, Hash, Clone, PartialEq, Debug)]
 pub enum Value {
-    UInt(u64),
     Int(i64),
     String(String),
     Boolean(bool),
@@ -14,35 +13,37 @@ pub enum Value {
 /// This is for types that are represented as integers, but are distinct types that should not
 /// be treated as integers semantically because arithmetic operations do not make sense for them.
 #[derive(Eq, Hash, Clone, PartialEq, Debug)]
-pub enum SpecialValue {
-    /// Inode numbers
-    Ino(u64),
+pub struct SpecialValue {
+    val: u64,
+    kind: SpecialValueKind,
+}
 
-    /// Mode
-    Mode(u32),
-
+#[derive(Eq, Hash, Clone, PartialEq, Debug)]
+pub enum SpecialValueKind {
+    Ino,
+    Mode,
     /// Both UIDs and GIDs
-    Uid(u32),
-
-    /// Device ID:
-    Devno(u64),
+    Uid,
+    Devno,
 }
 
 impl Value {
     pub fn is_truthy(self) -> bool {
         match self {
-            Value::UInt(i) => i != 0,
             Value::Int(i) => i != 0,
             Value::String(s) => s != "",
             Value::Boolean(b) => b,
             // Don't allow trying to interpret an inode number, UID, etc. as a bool:
-            Value::Special(s) => crate::runtime_error(&format!("Cannot evaluate a special value '{:?}' as a boolean", s)),
+            // XXX: can this be made a compile time error?
+            Value::Special(s) => crate::runtime_error(&format!(
+                "Cannot evaluate a special value '{:?}' as a boolean",
+                s
+            )),
         }
     }
 
     pub fn to_signed_int(self) -> i64 {
         match self {
-            Value::UInt(_) => panic!("Should I allow this?"),
             Value::Int(i) => i,
             Value::String(s) => s.parse::<i64>().unwrap_or(0),
             Value::Boolean(b) => {
@@ -53,7 +54,57 @@ impl Value {
                 }
             }
             // Don't allow trying to interpret an inode number, UID, etc. as an int:
-            Value::Special(s) => crate::runtime_error(&format!("Cannot evaluate a special value '{:?}' as an integer", s)),
+            Value::Special(s) => crate::runtime_error(&format!(
+                "Cannot evaluate a special value '{:?}' as an integer",
+                s
+            )),
+        }
+    }
+
+    pub fn binary_op(self, other: Value, op: OpKind) -> Value {
+        match op {
+            OpKind::Plus => Self::integer_op(self, other, |l, r| l + r),
+            OpKind::Minus => Self::integer_op(self, other, |l, r| l - r),
+            OpKind::Multiply => Self::integer_op(self, other, |l, r| l * r),
+            OpKind::Divide => Self::integer_op(self, other, |l, r| l / r),
+            OpKind::Greater => Self::int_to_bool_op(self, other, |l, r| l > r),
+            OpKind::GreaterEqual => Self::int_to_bool_op(self, other, |l, r| l >= r),
+            OpKind::Less => Self::int_to_bool_op(self, other, |l, r| l < r),
+            OpKind::LessEqual => Self::int_to_bool_op(self, other, |l, r| l <= r),
+            op => Self::equality(op, self, other),
+        }
+    }
+
+    fn int_to_bool_op(l: Value, r: Value, f: fn(i64, i64) -> bool) -> Value {
+        let l = l.to_signed_int();
+        let r = r.to_signed_int();
+        Value::Boolean(f(l, r))
+    }
+
+    fn integer_op(l: Value, r: Value, f: fn(i64, i64) -> i64) -> Value {
+        let l = l.to_signed_int();
+        let r = r.to_signed_int();
+        Value::Int(f(l, r))
+    }
+
+    fn equality(op: OpKind, val1: Value, val2: Value) -> Value {
+        if let Value::Special(s) = val1 {
+            return s.binary_op(op, val2);
+        }
+
+        if let Value::Special(s) = val2 {
+            return s.binary_op(op, val1);
+        }
+
+        match op {
+            OpKind::EqualEqual => {
+                if val1 == val2 {
+                    Value::Boolean(true)
+                } else {
+                    Value::Boolean(false)
+                }
+            }
+            _ => todo!(),
         }
     }
 }
@@ -61,7 +112,6 @@ impl Value {
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Value::UInt(u) => write!(f, "{u}"),
             Value::Int(i) => write!(f, "{i}"),
             Value::String(s) => write!(f, "{s}"),
             Value::Boolean(b) => match b {
@@ -73,13 +123,61 @@ impl std::fmt::Display for Value {
     }
 }
 
+impl SpecialValue {
+    fn new(val: u64, kind: SpecialValueKind) -> Value {
+        Value::Special(SpecialValue { val, kind })
+    }
+
+    fn binary_op(self, op: OpKind, other: Value) -> Value {
+        match op {
+            OpKind::EqualEqual => self.equality(other),
+            // XXX: impl display for OpKind for better error message?
+            op => {
+                crate::runtime_error(&format!("Cannot apply operator '{:?}' to '{:?}'", op, self))
+            }
+        }
+    }
+
+    fn equality(self, other: Value) -> Value {
+        match other {
+            // Any special value can be compared for equality with an unsigned int:
+            Value::Int(v) => {
+                let v: u64 = match v.try_into() {
+                    Ok(v) => v,
+                    Err(_) => crate::runtime_error(&format!(
+                        "Cannot compare '{:?}' to signed integer '{v}'",
+                        self
+                    )),
+                };
+                if self.val == v {
+                    Value::Boolean(true)
+                } else {
+                    Value::Boolean(false)
+                }
+            }
+            // Special values can be compared for equality with other special values of the
+            // same type only:
+            Value::Special(ref s) => {
+                if self.kind == s.kind {
+                    if self.val == s.val {
+                        Value::Boolean(true)
+                    } else {
+                        Value::Boolean(false)
+                    }
+                } else {
+                    crate::runtime_error(&format!("Cannot compare '{:?}' to '{:?}'", self, other))
+                }
+            }
+            other => crate::runtime_error(&format!("Cannot compare '{:?}' to '{:?}'", self, other)),
+        }
+    }
+}
+
 impl std::fmt::Display for SpecialValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SpecialValue::Ino(i) => write!(f, "{i}"),
-            SpecialValue::Mode(m) => write!(f, "{m:#o}"),
-            SpecialValue::Uid(u) => write!(f, "{u}"),
-            SpecialValue::Devno(d) => write!(f, "{d}"),
+        match self.kind {
+            SpecialValueKind::Mode => write!(f, "{:#o}", self.val),
+            _ => write!(f, "{}", self.val),
         }
     }
 }
@@ -117,7 +215,7 @@ impl Attribute {
 
         Ok(match self {
             Attribute::Size => Value::Int(md.size().try_into().unwrap()),
-            Attribute::Owner => Value::Int(md.uid().into()),
+            Attribute::Owner => SpecialValue::new(md.uid().into(), SpecialValueKind::Uid),
             Attribute::Name => unreachable!(),
             Attribute::Path => unreachable!(),
         })

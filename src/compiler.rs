@@ -306,19 +306,11 @@ impl<'a> Compiler<'a> {
 mod tests {
     use super::*;
 
-    fn is_error<T>(r: crate::Result<T>) -> bool {
-        if let Err(_) = r {
-            true
-        } else {
-            false
-        }
-    }
-
     fn should_error(program: &str) {
         let s = Scanner::new(program);
         let mut c = Compiler::new(s);
         assert!(
-            is_error(c.compile(&mut std::io::stdout())),
+            crate::is_error(c.compile(&mut std::io::stdout())),
             "Program should fail to compile: '{}'",
             program
         );
