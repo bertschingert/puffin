@@ -30,7 +30,7 @@ fn test_one_file_with_program(
     };
 
     let mut buf = Buffer::new();
-    puffin::driver(&args, &mut buf);
+    puffin::driver(&args, &mut buf).unwrap();
 
     match expected_output {
         ExpectedOutput::String(out) => assert_eq!(buf, out),
@@ -60,7 +60,7 @@ fn empty_program() {
     };
 
     let mut buf = Buffer::new();
-    puffin::driver(&args, &mut buf);
+    puffin::driver(&args, &mut buf).unwrap();
 
     assert_eq!(&buf.last_line(), &path);
 
@@ -208,7 +208,7 @@ fn print_paths() {
     };
 
     let mut buf = Buffer::new();
-    puffin::driver(&args, &mut buf);
+    puffin::driver(&args, &mut buf).unwrap();
     buf.trim_newline();
     assert_eq!(buf, "testfile");
 
@@ -219,7 +219,7 @@ fn print_paths() {
     };
 
     let mut buf = Buffer::new();
-    puffin::driver(&args, &mut buf);
+    puffin::driver(&args, &mut buf).unwrap();
     buf.trim_newline();
     assert_eq!(buf, &path);
 

@@ -21,26 +21,14 @@ pub struct Args {
     pub n_threads: usize,
 }
 
-pub fn driver<T: crate::SyncWrite>(args: &crate::Args, out: &mut T) {
+pub fn driver<T: crate::SyncWrite>(args: &crate::Args, out: &mut T) -> Result<()> {
     let scanner = Scanner::new(&args.prog);
     let mut comp = Compiler::new(scanner);
-    let prog = match comp.compile(out) {
-        Ok(prog) => prog,
-        Err(e) => {
-            eprintln!("{e}");
-            std::process::exit(1);
-        }
-    };
+    let prog = comp.compile(out).inspect_err(|e| {
+        eprintln!("{e}");
+    })?;
 
-    let _ = prog.run(args);
-}
-
-// XXX: is this necessary?
-pub fn is_error<T>(r: crate::Result<T>) -> bool {
-    match r {
-        Ok(_) => false,
-        Err(_) => true,
-    }
+    Ok(prog.run(args)?)
 }
 
 // Like std::io::Write but it requires that the writer be Sync.

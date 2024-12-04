@@ -310,7 +310,7 @@ mod tests {
         let s = Scanner::new(program);
         let mut c = Compiler::new(s);
         assert!(
-            crate::is_error(c.compile(&mut std::io::stdout())),
+            c.compile(&mut std::io::stdout()).is_err(),
             "Program should fail to compile: '{}'",
             program
         );

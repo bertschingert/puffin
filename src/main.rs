@@ -34,7 +34,10 @@ fn main() {
         n_threads: raw_args.n_threads,
     };
 
-    puffin::driver(&args, &mut std::io::stdout());
+    match puffin::driver(&args, &mut std::io::stdout()) {
+        Ok(()) => {}
+        Err(_) => std::process::exit(1),
+    };
 }
 
 fn usage() -> ! {

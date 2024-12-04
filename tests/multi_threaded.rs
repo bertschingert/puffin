@@ -16,7 +16,7 @@ fn count_files_1() {
     };
 
     let mut buf = Buffer::new();
-    puffin::driver(&args, &mut buf);
+    puffin::driver(&args, &mut buf).unwrap();
 
     buf.trim_newline();
     assert_eq!(buf, "40");
@@ -39,7 +39,7 @@ fn count_files_2() {
     };
 
     let mut buf = Buffer::new();
-    puffin::driver(&args, &mut buf);
+    puffin::driver(&args, &mut buf).unwrap();
 
     buf.trim_newline();
     assert_eq!(buf, "40");
@@ -68,7 +68,7 @@ fn count_files_by_size() {
     };
 
     let mut buf = Buffer::new();
-    puffin::driver(&args, &mut buf);
+    puffin::driver(&args, &mut buf).unwrap();
 
     buf.trim_newline();
     assert_eq!(buf, "24");
@@ -97,7 +97,7 @@ fn count_files_arrays() {
     };
 
     let mut buf = Buffer::new();
-    puffin::driver(&args, &mut buf);
+    puffin::driver(&args, &mut buf).unwrap();
 
     buf.trim_newline();
     assert_eq!(buf, "18 12");
@@ -110,7 +110,7 @@ fn count_files_arrays() {
     };
 
     let mut buf = Buffer::new();
-    puffin::driver(&args, &mut buf);
+    puffin::driver(&args, &mut buf).unwrap();
 
     let lines = buf.sorted_lines();
     assert_eq!(&lines[0], "three: 18");
@@ -134,7 +134,7 @@ fn count_files_arrays_2() {
     };
 
     let mut buf = Buffer::new();
-    puffin::driver(&args, &mut buf);
+    puffin::driver(&args, &mut buf).unwrap();
 
     buf.trim_newline();
     assert_eq!(buf, "8 8");
