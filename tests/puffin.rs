@@ -33,10 +33,10 @@ fn test_one_file_with_program(
     puffin::driver(&args, &mut buf).unwrap();
 
     match expected_output {
-        ExpectedOutput::String(out) => assert_eq!(buf, out),
+        ExpectedOutput::String(out) => assert_eq!(buf, out, "program: {}", prog),
         ExpectedOutput::Filename => {
             buf.trim_newline();
-            assert_eq!(buf, &path);
+            assert_eq!(buf, &path, "program: {}", prog);
         }
     };
 
@@ -283,52 +283,62 @@ fn variables() {
 
 #[test]
 fn arrays() {
-    test_one_file_with_program(
-        "arrays",
-        None,
+    fn expect_output(prog: &str, output: &str) {
+        let output = match output {
+            "" => "",
+            _ => &format!("{}\n", output),
+        };
+        test_one_file_with_program("arrays", None, prog, ExpectedOutput::String(output));
+    }
+
+    expect_output(
         "{ arr[1] = 1; arr2[2] = 2} end {print arr[1], arr2[2]}",
-        ExpectedOutput::String("1 2\n"),
+        "1 2",
     );
 
-    test_one_file_with_program(
-        "arrays",
-        None,
+    expect_output(
         "{ arr[1] = 1; arr[\"key\"] = 2; arr[1] = arr[\"key\"]} end {print arr[1], arr[\"key\"]}",
-        ExpectedOutput::String("2 2\n"),
+        "2 2",
     );
 
-    test_one_file_with_program(
-        "arrays",
-        None,
-        "{ arr[1] = 1} arr {print arr[1]}",
-        ExpectedOutput::String("1\n"),
-    );
+    expect_output("{ arr[1] = 1} arr {print arr[1]}", "1");
 
-    test_one_file_with_program(
-        "arrays",
-        None,
-        "{ arr[1] = 1} arr[\"key\"] {print \"output\"}",
-        ExpectedOutput::String(""),
-    );
+    expect_output("{ arr[1] = 1} arr[\"key\"] {print \"output\"}", "");
 
-    test_one_file_with_program(
-        "arrays",
-        None,
+    expect_output(
         "{ arr[1] = 1} arr[\"key\"] + arr[1] {print \"output\"}",
-        ExpectedOutput::String("output\n"),
+        "output",
     );
 
-    test_one_file_with_program(
-        "arrays",
-        None,
+    expect_output(
         "{arr[1] = 1; arr2[arr[1]] = 2; arr[1] += arr2[arr[1]]} end {print arr2[arr[1]], arr2[1], arr[1]}",
-        ExpectedOutput::String("0 2 3\n"),
-    );
+        "0 2 3");
 
-    test_one_file_with_program(
-        "arrays",
-        None,
+    expect_output(
         "{arr[1] = \"hey\"; arr[2] = \"there\"; print arr[1], arr[2]}",
-        ExpectedOutput::String("hey there\n"),
+        "hey there",
     );
+}
+
+#[test]
+fn expressions() {
+    fn expect_output(prog: &str, output: &str) {
+        let output = match output {
+            "" => "",
+            _ => &format!("{}\n", output),
+        };
+        test_one_file_with_program("expressions", None, prog, ExpectedOutput::String(output));
+    }
+
+    expect_output("{ print 1 + 2 * 3 }", "7");
+    expect_output("{ print 2 + 3 * 2 / 3 }", "4");
+    expect_output("0 or 1 { print 9 }", "9");
+    expect_output("1 and 1 { print 9 }", "9");
+    expect_output("0 and 1 { print 9 }", "");
+    expect_output("1 and 0 { print 9 }", "");
+    expect_output("0 and 0 { print 9 }", "");
+    expect_output("0 or 0 { print 9 }", "");
+    expect_output("0 or 3 - 3 { print 9 }", "");
+    expect_output("0 or 3 + 3 { print 9 }", "9");
+    expect_output("0 + 1 - 1 or 3 + 3 * 2 / 3 - 5 { print 9 }", "");
 }

@@ -233,7 +233,10 @@ impl<'a> Compiler<'a> {
 
                     self.next();
 
-                    let right = self.expression(Self::op_precedence(op))?;
+                    // Left-associative operators (the only kind we have so far) pass in a higher
+                    // precedence so that subsequent operations at the same precedence level bind
+                    // to the left.
+                    let right = self.expression(Self::op_precedence(op) + 1)?;
                     left = Expression::Bin(BinaryOp {
                         kind: op,
                         left: Box::new(left),
