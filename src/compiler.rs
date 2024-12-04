@@ -276,6 +276,14 @@ impl<'a> Compiler<'a> {
                 let name = name.clone();
                 Ok(Expression::Var(self.variable(name)?))
             }
+            Token::LeftParen => {
+                let expr = self.expression(0)?;
+                self.eat(
+                    Token::RightParen,
+                    "Expected ')' after parenthesized expression",
+                )?;
+                Ok(expr)
+            }
             t => Err(compile_error("Expected value, attribute, or identifier", t)),
         }
     }
@@ -358,6 +366,11 @@ mod tests {
         should_error("+ 1");
         should_error("1 + 2 * ");
         should_error("1 + .name - ");
+        should_error("1 + (2 * 3");
+        should_error("1 + (2 * ");
+        should_error("1 + (2 * { print 2 }");
+        should_error("1 - )3");
+        should_error("1 - ()");
     }
 
     #[test]

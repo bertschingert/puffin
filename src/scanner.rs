@@ -13,6 +13,8 @@ pub enum Token {
     RightBrace,
     LeftBracket,
     RightBracket,
+    LeftParen,
+    RightParen,
     Semicolon,
     Comma,
     Print,
@@ -70,6 +72,8 @@ impl<'a> Scanner<'a> {
             '}' => Token::RightBrace,
             '[' => Token::LeftBracket,
             ']' => Token::RightBracket,
+            '(' => Token::LeftParen,
+            ')' => Token::RightParen,
             ';' => Token::Semicolon,
             ',' => Token::Comma,
             '"' => {

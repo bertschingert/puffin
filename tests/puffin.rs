@@ -331,6 +331,7 @@ fn expressions() {
     }
 
     expect_output("{ print 1 + 2 * 3 }", "7");
+    expect_output("{ print (1 + 2) * 3}", "9");
     expect_output("{ print 2 + 3 * 2 / 3 }", "4");
     expect_output("0 or 1 { print 9 }", "9");
     expect_output("1 and 1 { print 9 }", "9");
@@ -341,4 +342,7 @@ fn expressions() {
     expect_output("0 or 3 - 3 { print 9 }", "");
     expect_output("0 or 3 + 3 { print 9 }", "9");
     expect_output("0 + 1 - 1 or 3 + 3 * 2 / 3 - 5 { print 9 }", "");
+    expect_output("{print (1 > 2) * 3}", "0");
+    expect_output("{print (1 < 2) * 3}", "3");
+    expect_output("{print (((1 + 2) * 3) - 1) * 5 }", "40");
 }
