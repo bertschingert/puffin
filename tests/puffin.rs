@@ -324,4 +324,11 @@ fn arrays() {
         "{arr[1] = 1; arr2[arr[1]] = 2; arr[1] += arr2[arr[1]]} end {print arr2[arr[1]], arr2[1], arr[1]}",
         ExpectedOutput::String("0 2 3\n"),
     );
+
+    test_one_file_with_program(
+        "arrays",
+        None,
+        "{arr[1] = \"hey\"; arr[2] = \"there\"; print arr[1], arr[2]}",
+        ExpectedOutput::String("hey there\n"),
+    );
 }

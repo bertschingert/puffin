@@ -90,7 +90,7 @@ impl<'a> VariableState<'a> {
 
 #[derive(Clone)]
 pub struct UnlockedVars<'a> {
-    scalars: &'a Vec<i64>,
+    scalars: &'a Vec<Value>,
     arrays: &'a Arrays,
 }
 
@@ -100,7 +100,7 @@ impl<'a> UnlockedVars<'a> {
             Variable::NotYetKnown(name) => {
                 panic!("Attempted to use unresolved variable \"{name}\".")
             }
-            Variable::Scalar(id) => Value::Int(self.scalars[id.id]),
+            Variable::Scalar(id) => self.scalars[id.id].clone(),
             // XXX: should evaluating an array to a string be allowed in a RHS?
             Variable::Arr(_) => panic!("Cannot evaluate an array name in this context."),
             Variable::ArrSub(arr) => {
@@ -114,14 +114,14 @@ impl<'a> UnlockedVars<'a> {
 pub struct LockedVars {
     /// Vector of values of variables
     // XXX: only us a single mutex for both of these -- since we'll always be locking both anyways?
-    scalars: Mutex<Vec<i64>>,
+    scalars: Mutex<Vec<Value>>,
     arrays: Mutex<Arrays>,
 }
 
 impl LockedVars {
     fn new(num_scalars: usize, num_arrs: usize) -> Self {
         LockedVars {
-            scalars: Mutex::new(vec![0; num_scalars]),
+            scalars: Mutex::new(vec![Value::Int(0); num_scalars]),
             arrays: Mutex::new(Arrays::new(num_arrs)),
         }
     }
@@ -133,7 +133,7 @@ impl LockedVars {
             }
             Variable::Scalar(id) => {
                 let scalars = self.scalars.lock().unwrap();
-                Value::Int(scalars[id.id])
+                scalars[id.id].clone()
             }
             Variable::Arr(id) => {
                 let arrays = self.arrays.lock().unwrap();
@@ -170,7 +170,7 @@ impl LockedVars {
                 panic!("Attempted to use unresolved variable \"{name}\".")
             }
             Variable::Scalar(id) => {
-                scalars[id.id] = new.to_signed_int();
+                scalars[id.id] = new;
             }
             Variable::ArrSub(arr) => {
                 let unlocked = UnlockedVars {
@@ -190,7 +190,7 @@ impl LockedVars {
 }
 
 struct Arrays {
-    arrs: Vec<HashMap<Value, i64>>,
+    arrs: Vec<HashMap<Value, Value>>,
 }
 
 impl Arrays {
@@ -226,18 +226,16 @@ impl Arrays {
         s: &VariableState,
         arr: &ArraySubscript,
     ) -> crate::Result<Value> {
-        Ok(Value::Int(
+        Ok(
             match self.arrs[arr.id].get(&arr.subscript.evaluate(f, s)?) {
-                Some(v) => *v,
-                _ => 0,
+                Some(v) => v.clone(),
+                _ => Value::Int(0),
             },
-        ))
+        )
     }
 
     /// Sets a value in an associative array.
     fn set_variable(&mut self, id: usize, subscript: Value, new: Value) {
-        self.arrs[id]
-            .entry(subscript)
-            .insert_entry(new.to_signed_int());
+        self.arrs[id].entry(subscript).insert_entry(new);
     }
 }
