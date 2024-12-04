@@ -110,8 +110,13 @@ fn worker_main<T: crate::SyncWrite>(
     state: &State<T>,
 ) -> Result<(), crate::RuntimeError> {
     loop {
+        if state.prog_state.check_runtime_error() {
+            break;
+        };
+
         match find_task(w, state) {
-            Some(path) => process_directory(&path, w, state)?,
+            Some(path) => process_directory(&path, w, state)
+                .inspect_err(|e| state.prog_state.set_runtime_error(e.clone()))?,
             // TODO: proper termination detecton.
             None => break,
         };

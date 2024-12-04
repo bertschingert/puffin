@@ -96,7 +96,7 @@ mod errors {
         }
     }
 
-    #[derive(Debug)]
+    #[derive(Clone, Debug)]
     pub struct RuntimeError {
         msg: String,
     }
