@@ -1,5 +1,6 @@
 use std::cell::OnceCell;
 
+use crate::filter_non_fatal_errors;
 use crate::program_state::ProgramState;
 use crate::treewalk::*;
 use crate::types::*;
@@ -40,7 +41,7 @@ pub struct Program<'a, 'b, T: crate::SyncWrite> {
 }
 
 impl<'a, 'b, T: crate::SyncWrite> Program<'a, 'b, T> {
-    pub fn run(&'a self, args: &crate::Args) -> crate::Result<()> {
+    pub fn run(&'a self, args: &crate::Args) -> Result<(), crate::RuntimeError> {
         let path = &args.path;
 
         let md = std::fs::metadata(path).unwrap();
@@ -49,7 +50,7 @@ impl<'a, 'b, T: crate::SyncWrite> Program<'a, 'b, T> {
 
         if md.is_dir() {
             let f = FileState::new(path.into(), Some(md));
-            treewalk(args, &self.routines, f, &self.prog_state);
+            treewalk(args, &self.routines, f, &self.prog_state)?;
         } else {
             let f = FileState::new(path.into(), Some(md));
             run_routines(&self.routines, &f, &self.prog_state)?;
@@ -58,14 +59,14 @@ impl<'a, 'b, T: crate::SyncWrite> Program<'a, 'b, T> {
         self.begin_or_end(&self.end)
     }
 
-    fn begin_or_end(&self, action: &Option<Action>) -> crate::Result<()> {
-        if let Some(action) = action {
+    fn begin_or_end(&self, action: &Option<Action>) -> Result<(), crate::RuntimeError> {
+        filter_non_fatal_errors(if let Some(action) = action {
             action
                 .interpret(None, &self.prog_state)
-                .inspect_err(|e| eprintln!("{e}"))?;
-        }
-
-        Ok(())
+                .inspect_err(|e| eprintln!("{e}"))
+        } else {
+            Ok(())
+        })
     }
 }
 
@@ -85,9 +86,11 @@ pub fn run_routines<'a, 'b, T: crate::SyncWrite>(
     routines: &Vec<Routine>,
     f: &FileState,
     p: &ProgramState<'a, 'b, T>,
-) -> crate::Result<()> {
-    run_routines_inner(routines, f, p)
-        .inspect_err(|e| eprintln!("Could not run program on {:?}: {e}", f.path.display()))
+) -> Result<(), crate::RuntimeError> {
+    filter_non_fatal_errors(
+        run_routines_inner(routines, f, p)
+            .inspect_err(|e| eprintln!("Could not run program on {:?}: {e}", f.path.display())),
+    )
 }
 
 fn run_routines_inner<'a, 'b, T: crate::SyncWrite>(
@@ -98,7 +101,7 @@ fn run_routines_inner<'a, 'b, T: crate::SyncWrite>(
     for routine in routines.iter() {
         match &routine.cond {
             Some(cond) => {
-                if cond.expr.evaluate(Some(f), p.vars())?.is_truthy() {
+                if cond.expr.evaluate(Some(f), p.vars())?.is_truthy()? {
                     routine.action.interpret(Some(f), p)?;
                 }
             }
@@ -210,7 +213,7 @@ impl BinaryOp {
         let l = self.left.evaluate(f, vars)?;
         let r = self.right.evaluate(f, vars)?;
 
-        Ok(l.binary_op(r, self.kind))
+        Ok(l.binary_op(r, self.kind)?)
     }
 }
 

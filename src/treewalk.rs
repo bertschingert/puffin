@@ -10,29 +10,29 @@ pub fn treewalk<'a, 'b, T: crate::SyncWrite>(
     routines: &Vec<Routine>,
     f: FileState,
     p: &ProgramState<'a, 'b, T>,
-) {
-    match run_routines(routines, &f, p) {
-        Ok(_) => {}
-        // If there was an error running the program on the root, there is no point in continuing
-        // as it would suggest the root no longer exists.
-        Err(_) => return,
-    };
+) -> Result<(), crate::RuntimeError> {
+    // If there was an error running the program on the root, there is no point in continuing.
+    // Either an I/O to the root failed (maybe because it no longer exists), or there was a
+    // runtime error in the program on the root, and the policy for runtime errors is to stop
+    // program operation.
+    run_routines(routines, &f, p)?;
 
     match args.n_threads {
         1 => treewalk_single_threaded(routines, f, p),
         _ => treewalk_multi_threaded(args, routines, f, p),
-    };
+    }
 }
 
 fn treewalk_single_threaded<'a, 'b, T: crate::SyncWrite>(
     routines: &Vec<Routine>,
     f: FileState,
     p: &ProgramState<'a, 'b, T>,
-) {
+) -> Result<(), crate::RuntimeError> {
     let mut stack: Vec<std::path::PathBuf> = Vec::new();
     stack.push(f.path);
 
     while let Some(path) = stack.pop() {
+        // XXX: flatten() instead of unwrap()?
         for ent in std::fs::read_dir(path).unwrap() {
             let Ok(ent) = ent else {
                 continue;
@@ -53,9 +53,11 @@ fn treewalk_single_threaded<'a, 'b, T: crate::SyncWrite>(
             }
 
             let f = FileState::new(ent.path(), None);
-            let _ = run_routines(routines, &f, p);
+            let _ = run_routines(routines, &f, p)?;
         }
     }
+
+    Ok(())
 }
 
 struct State<'a, 'p1, 'p2, T: crate::SyncWrite> {
@@ -70,7 +72,7 @@ fn treewalk_multi_threaded<'p1, 'p2, T: crate::SyncWrite>(
     routines: &'p1 Vec<Routine>,
     f: FileState,
     p: &'p1 ProgramState<'p1, 'p2, T>,
-) {
+) -> Result<(), crate::RuntimeError> {
     let mut workers: Vec<Worker<PathBuf>> = Vec::new();
     let mut stealers: Vec<Stealer<PathBuf>> = Vec::new();
 
@@ -90,24 +92,32 @@ fn treewalk_multi_threaded<'p1, 'p2, T: crate::SyncWrite>(
     workers[0].push(f.path);
 
     std::thread::scope(|s| {
-        for _ in 0..args.n_threads {
-            let worker = workers.pop().unwrap();
-            let state = &state;
-            s.spawn(move || {
-                worker_main(&worker, state);
-            });
-        }
-    });
+        (0..args.n_threads)
+            .map(|_| {
+                let worker = workers.pop().unwrap();
+                let state = &state;
+                s.spawn(move || worker_main(&worker, state))
+            })
+            .map(|t| t.join().unwrap())
+            // If any of the threads had an error, return the first error, otherwise, Ok():
+            .find(|r| r.is_err())
+            .unwrap_or(Ok(()))
+    })
 }
 
-fn worker_main<T: crate::SyncWrite>(w: &Worker<PathBuf>, state: &State<T>) {
+fn worker_main<T: crate::SyncWrite>(
+    w: &Worker<PathBuf>,
+    state: &State<T>,
+) -> Result<(), crate::RuntimeError> {
     loop {
         match find_task(w, state) {
-            Some(path) => process_directory(&path, w, state),
+            Some(path) => process_directory(&path, w, state)?,
             // TODO: proper termination detecton.
             None => break,
         };
     }
+
+    Ok(())
 }
 
 fn find_task<T: crate::SyncWrite>(local: &Worker<PathBuf>, state: &State<T>) -> Option<PathBuf> {
@@ -127,9 +137,13 @@ fn find_task<T: crate::SyncWrite>(local: &Worker<PathBuf>, state: &State<T>) -> 
     None
 }
 
-fn process_directory<T: crate::SyncWrite>(path: &Path, w: &Worker<PathBuf>, state: &State<T>) {
+fn process_directory<T: crate::SyncWrite>(
+    path: &Path,
+    w: &Worker<PathBuf>,
+    state: &State<T>,
+) -> Result<(), crate::RuntimeError> {
     let Ok(dir) = std::fs::read_dir(path) else {
-        return;
+        return Ok(());
     };
 
     for ent in dir {
@@ -145,7 +159,7 @@ fn process_directory<T: crate::SyncWrite>(path: &Path, w: &Worker<PathBuf>, stat
 
         let f = FileState::new(ent.path(), None);
 
-        let _ = run_routines(state.routines, &f, state.prog_state);
+        run_routines(state.routines, &f, state.prog_state)?;
 
         let Ok(ty) = ent.file_type() else {
             continue;
@@ -155,4 +169,6 @@ fn process_directory<T: crate::SyncWrite>(path: &Path, w: &Worker<PathBuf>, stat
             w.push(ent.path());
         }
     }
+
+    Ok(())
 }

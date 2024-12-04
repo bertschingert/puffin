@@ -1,7 +1,8 @@
-use std::os::unix::fs::MetadataExt;
 use std::os::unix::fs::FileTypeExt;
+use std::os::unix::fs::MetadataExt;
 
 use crate::ast::*;
+use crate::RuntimeError;
 
 #[derive(Eq, Hash, Clone, PartialEq, Debug)]
 pub enum Value {
@@ -31,22 +32,24 @@ pub enum SpecialValueKind {
 }
 
 impl Value {
-    pub fn is_truthy(self) -> bool {
-        match self {
+    pub fn is_truthy(self) -> Result<bool, RuntimeError> {
+        Ok(match self {
             Value::Int(i) => i != 0,
             Value::String(s) => s != "",
             Value::Boolean(b) => b,
             // Don't allow trying to interpret an inode number, UID, etc. as a bool:
             // XXX: can this be made a compile time error?
-            Value::Special(s) => crate::runtime_error(&format!(
-                "Cannot evaluate a special value '{:?}' as a boolean",
-                s
-            )),
-        }
+            Value::Special(s) => {
+                return Err(RuntimeError::new(&format!(
+                    "Cannot evaluate a special value '{:?}' as a boolean",
+                    s
+                )))
+            }
+        })
     }
 
-    pub fn to_signed_int(self) -> i64 {
-        match self {
+    pub fn to_signed_int(self) -> Result<i64, RuntimeError> {
+        Ok(match self {
             Value::Int(i) => i,
             Value::String(s) => s.parse::<i64>().unwrap_or(0),
             Value::Boolean(b) => {
@@ -57,58 +60,55 @@ impl Value {
                 }
             }
             // Don't allow trying to interpret an inode number, UID, etc. as an int:
-            Value::Special(s) => crate::runtime_error(&format!(
-                "Cannot evaluate a special value '{:?}' as an integer",
-                s
-            )),
-        }
+            Value::Special(s) => {
+                return Err(RuntimeError::new(&format!(
+                    "Cannot evaluate a special value '{:?}' as an integer",
+                    s
+                )))
+            }
+        })
     }
 
-    pub fn binary_op(self, other: Value, op: OpKind) -> Value {
-        match op {
-            OpKind::Plus => Self::integer_op(self, other, |l, r| l + r),
-            OpKind::Minus => Self::integer_op(self, other, |l, r| l - r),
-            OpKind::Multiply => Self::integer_op(self, other, |l, r| l * r),
-            OpKind::Divide => Self::integer_op(self, other, |l, r| l / r),
-            OpKind::Greater => Self::int_to_bool_op(self, other, |l, r| l > r),
-            OpKind::GreaterEqual => Self::int_to_bool_op(self, other, |l, r| l >= r),
-            OpKind::Less => Self::int_to_bool_op(self, other, |l, r| l < r),
-            OpKind::LessEqual => Self::int_to_bool_op(self, other, |l, r| l <= r),
-            op => Self::equality(op, self, other),
-        }
+    pub fn binary_op(self, other: Value, op: OpKind) -> Result<Value, RuntimeError> {
+        Ok(match op {
+            OpKind::Plus => Self::integer_op(self, other, |l, r| l + r)?,
+            OpKind::Minus => Self::integer_op(self, other, |l, r| l - r)?,
+            OpKind::Multiply => Self::integer_op(self, other, |l, r| l * r)?,
+            OpKind::Divide => Self::integer_op(self, other, |l, r| l / r)?,
+            OpKind::Greater => Self::int_to_bool_op(self, other, |l, r| l > r)?,
+            OpKind::GreaterEqual => Self::int_to_bool_op(self, other, |l, r| l >= r)?,
+            OpKind::Less => Self::int_to_bool_op(self, other, |l, r| l < r)?,
+            OpKind::LessEqual => Self::int_to_bool_op(self, other, |l, r| l <= r)?,
+            OpKind::EqualEqual => Self::equality(self, other)?,
+        })
     }
 
-    fn int_to_bool_op(l: Value, r: Value, f: fn(i64, i64) -> bool) -> Value {
-        let l = l.to_signed_int();
-        let r = r.to_signed_int();
-        Value::Boolean(f(l, r))
+    fn int_to_bool_op(l: Value, r: Value, f: fn(i64, i64) -> bool) -> Result<Value, RuntimeError> {
+        let l = l.to_signed_int()?;
+        let r = r.to_signed_int()?;
+        Ok(Value::Boolean(f(l, r)))
     }
 
-    fn integer_op(l: Value, r: Value, f: fn(i64, i64) -> i64) -> Value {
-        let l = l.to_signed_int();
-        let r = r.to_signed_int();
-        Value::Int(f(l, r))
+    fn integer_op(l: Value, r: Value, f: fn(i64, i64) -> i64) -> Result<Value, RuntimeError> {
+        let l = l.to_signed_int()?;
+        let r = r.to_signed_int()?;
+        Ok(Value::Int(f(l, r)))
     }
 
-    fn equality(op: OpKind, val1: Value, val2: Value) -> Value {
+    fn equality(val1: Value, val2: Value) -> Result<Value, RuntimeError> {
         if let Value::Special(s) = val1 {
-            return s.binary_op(op, val2);
+            return s.binary_op(OpKind::EqualEqual, val2);
         }
 
         if let Value::Special(s) = val2 {
-            return s.binary_op(op, val1);
+            return s.binary_op(OpKind::EqualEqual, val1);
         }
 
-        match op {
-            OpKind::EqualEqual => {
-                if val1 == val2 {
-                    Value::Boolean(true)
-                } else {
-                    Value::Boolean(false)
-                }
-            }
-            _ => todo!(),
-        }
+        Ok(if val1 == val2 {
+            Value::Boolean(true)
+        } else {
+            Value::Boolean(false)
+        })
     }
 }
 
@@ -131,47 +131,56 @@ impl SpecialValue {
         Value::Special(SpecialValue { val, kind })
     }
 
-    fn binary_op(self, op: OpKind, other: Value) -> Value {
+    fn binary_op(self, op: OpKind, other: Value) -> Result<Value, RuntimeError> {
         match op {
-            OpKind::EqualEqual => self.equality(other),
+            OpKind::EqualEqual => Ok(self.equality(other)?),
             // XXX: impl display for OpKind for better error message?
-            op => {
-                crate::runtime_error(&format!("Cannot apply operator '{:?}' to '{:?}'", op, self))
-            }
+            op => Err(RuntimeError::new(&format!(
+                "Cannot apply operator '{:?}' to '{:?}'",
+                op, self
+            ))),
         }
     }
 
-    fn equality(self, other: Value) -> Value {
+    fn equality(self, other: Value) -> Result<Value, RuntimeError> {
         match other {
             // Any special value can be compared for equality with an unsigned int:
             Value::Int(v) => {
                 let v: u64 = match v.try_into() {
                     Ok(v) => v,
-                    Err(_) => crate::runtime_error(&format!(
-                        "Cannot compare '{:?}' to signed integer '{v}'",
-                        self
-                    )),
+                    Err(_) => {
+                        return Err(RuntimeError::new(&format!(
+                            "Cannot compare '{:?}' to signed integer '{v}'",
+                            self
+                        )))
+                    }
                 };
-                if self.val == v {
+                Ok(if self.val == v {
                     Value::Boolean(true)
                 } else {
                     Value::Boolean(false)
-                }
+                })
             }
             // Special values can be compared for equality with other special values of the
             // same type only:
             Value::Special(ref s) => {
                 if self.kind == s.kind {
-                    if self.val == s.val {
+                    Ok(if self.val == s.val {
                         Value::Boolean(true)
                     } else {
                         Value::Boolean(false)
-                    }
+                    })
                 } else {
-                    crate::runtime_error(&format!("Cannot compare '{:?}' to '{:?}'", self, other))
+                    Err(RuntimeError::new(&format!(
+                        "Cannot compare '{:?}' to '{:?}'",
+                        self, other
+                    )))
                 }
             }
-            other => crate::runtime_error(&format!("Cannot compare '{:?}' to '{:?}'", self, other)),
+            other => Err(RuntimeError::new(&format!(
+                "Cannot compare '{:?}' to '{:?}'",
+                self, other
+            ))),
         }
     }
 }
@@ -273,21 +282,22 @@ impl Attribute {
             Attribute::Type => {
                 let ty = md.file_type();
                 Value::String(
-                if ty.is_dir() {
-                    "dir"
-                } else if ty.is_file() {
-                    "file"
-                } else if ty.is_block_device() {
-                    "block"
-                } else if ty.is_char_device() {
-                    "char"
-                } else if ty.is_fifo() {
-                    "fifo"
-                } else if ty.is_socket() {
-                    "socket"
-                } else {
-                    "unknown"
-                }.to_string()
+                    if ty.is_dir() {
+                        "dir"
+                    } else if ty.is_file() {
+                        "file"
+                    } else if ty.is_block_device() {
+                        "block"
+                    } else if ty.is_char_device() {
+                        "char"
+                    } else if ty.is_fifo() {
+                        "fifo"
+                    } else if ty.is_socket() {
+                        "socket"
+                    } else {
+                        "unknown"
+                    }
+                    .to_string(),
                 )
             }
             Attribute::Name => unreachable!(),
