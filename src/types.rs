@@ -80,6 +80,8 @@ impl Value {
             OpKind::Less => Self::int_to_bool_op(self, other, |l, r| l < r)?,
             OpKind::LessEqual => Self::int_to_bool_op(self, other, |l, r| l <= r)?,
             OpKind::EqualEqual => Self::equality(self, other)?,
+            OpKind::And => Value::Boolean(self.is_truthy()? && other.is_truthy()?),
+            OpKind::Or => Value::Boolean(self.is_truthy()? || other.is_truthy()?),
         })
     }
 
@@ -279,6 +281,7 @@ impl Attribute {
             Attribute::Atime => Value::Int(md.atime()),
             Attribute::Ctime => Value::Int(md.ctime()),
             Attribute::Mtime => Value::Int(md.mtime()),
+            // XXX: make type return an enum instead of a string
             Attribute::Type => {
                 let ty = md.file_type();
                 Value::String(

@@ -228,6 +228,8 @@ pub enum OpKind {
     Minus,
     Multiply,
     Divide,
+    And,
+    Or,
 }
 
 #[derive(Clone, Debug)]
@@ -270,6 +272,8 @@ impl std::fmt::Display for Expression {
                         OpKind::Minus => "-",
                         OpKind::Multiply => "*",
                         OpKind::Divide => "/",
+                        OpKind::And => "and",
+                        OpKind::Or => "or",
                     }
                 )?;
                 write!(f, "{} ", op.left)?;

@@ -159,6 +159,8 @@ impl<'a> Scanner<'a> {
                         "END" => Token::End,
                         "end" => Token::End,
                         "print" => Token::Print,
+                        "and" => Token::BinOp(OpKind::And),
+                        "or" => Token::BinOp(OpKind::Or),
                         a => self.identifier(a),
                     };
                 }

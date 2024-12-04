@@ -251,15 +251,17 @@ impl<'a> Compiler<'a> {
 
     fn op_precedence(op: OpKind) -> u8 {
         match op {
-            OpKind::Multiply => 3,
-            OpKind::Divide => 3,
-            OpKind::Plus => 2,
-            OpKind::Minus => 2,
-            OpKind::Greater => 1,
-            OpKind::GreaterEqual => 1,
-            OpKind::Less => 1,
-            OpKind::LessEqual => 1,
-            OpKind::EqualEqual => 1,
+            OpKind::Multiply => 50,
+            OpKind::Divide => 50,
+            OpKind::Plus => 40,
+            OpKind::Minus => 40,
+            OpKind::Greater => 30,
+            OpKind::GreaterEqual => 30,
+            OpKind::Less => 30,
+            OpKind::LessEqual => 30,
+            OpKind::EqualEqual => 30,
+            OpKind::And => 20,
+            OpKind::Or => 10,
         }
     }
 
