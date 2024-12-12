@@ -123,7 +123,9 @@ impl<'a> Scanner<'a> {
                     self.chars.next();
                 }
                 None => {
-                    return Token::Error(format!("Unexpected end of input while parsing a string"))
+                    return Token::Error(
+                        "Unexpected end of input while parsing a string".to_string(),
+                    )
                 }
             }
         }

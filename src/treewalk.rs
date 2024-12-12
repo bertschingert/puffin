@@ -5,11 +5,11 @@ use crate::ast::{run_routines, FileState, Routine};
 use crate::program_state::ProgramState;
 use crate::Args;
 
-pub fn treewalk<'a, 'b, T: crate::SyncWrite>(
+pub fn treewalk<T: crate::SyncWrite>(
     args: &Args,
     routines: &Vec<Routine>,
     f: FileState,
-    p: &ProgramState<'a, 'b, T>,
+    p: &ProgramState<'_, '_, T>,
 ) -> Result<(), crate::RuntimeError> {
     // If there was an error running the program on the root, there is no point in continuing.
     // Either an I/O to the root failed (maybe because it no longer exists), or there was a
@@ -23,10 +23,10 @@ pub fn treewalk<'a, 'b, T: crate::SyncWrite>(
     }
 }
 
-fn treewalk_single_threaded<'a, 'b, T: crate::SyncWrite>(
-    routines: &Vec<Routine>,
+fn treewalk_single_threaded<T: crate::SyncWrite>(
+    routines: &[Routine],
     f: FileState,
-    p: &ProgramState<'a, 'b, T>,
+    p: &ProgramState<'_, '_, T>,
 ) -> Result<(), crate::RuntimeError> {
     let mut stack: Vec<std::path::PathBuf> = Vec::new();
     stack.push(f.path);
@@ -53,7 +53,7 @@ fn treewalk_single_threaded<'a, 'b, T: crate::SyncWrite>(
             }
 
             let f = FileState::new(ent.path(), None);
-            let _ = run_routines(routines, &f, p)?;
+            run_routines(routines, &f, p)?;
         }
     }
 
@@ -67,11 +67,11 @@ struct State<'a, 'p1, 'p2, T: crate::SyncWrite> {
     prog_state: &'p1 ProgramState<'p1, 'p2, T>,
 }
 
-fn treewalk_multi_threaded<'p1, 'p2, T: crate::SyncWrite>(
+fn treewalk_multi_threaded<'p1, T: crate::SyncWrite>(
     args: &Args,
     routines: &'p1 Vec<Routine>,
     f: FileState,
-    p: &'p1 ProgramState<'p1, 'p2, T>,
+    p: &'p1 ProgramState<'p1, '_, T>,
 ) -> Result<(), crate::RuntimeError> {
     let mut workers: Vec<Worker<PathBuf>> = Vec::new();
     let mut stealers: Vec<Stealer<PathBuf>> = Vec::new();
@@ -131,11 +131,8 @@ fn find_task<T: crate::SyncWrite>(local: &Worker<PathBuf>, state: &State<T>) -> 
     }
 
     for i in 0..state.n_workers {
-        match state.stealers[i].steal() {
-            Steal::Success(task) => {
-                return Some(task);
-            }
-            _ => {}
+        if let Steal::Success(task) = state.stealers[i].steal() {
+            return Some(task);
         };
     }
 

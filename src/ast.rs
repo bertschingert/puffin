@@ -20,9 +20,8 @@ impl FileState {
     /// otherwise, None means it will be queried from the filesystem later if needed.
     pub fn new(path: std::path::PathBuf, md: Option<std::fs::Metadata>) -> Self {
         let md_cell = OnceCell::new();
-        match md {
-            Some(md) => md_cell.set(Ok(md)).unwrap(),
-            None => {}
+        if let Some(md) = md {
+            md_cell.set(Ok(md)).unwrap()
         };
 
         FileState { path, md: md_cell }
@@ -40,7 +39,7 @@ pub struct Program<'a, 'b, T: crate::SyncWrite> {
     pub prog_state: ProgramState<'a, 'b, T>,
 }
 
-impl<'a, 'b, T: crate::SyncWrite> Program<'a, 'b, T> {
+impl<'a, T: crate::SyncWrite> Program<'a, '_, T> {
     pub fn run(&'a self, args: &crate::Args) -> Result<(), crate::RuntimeError> {
         let path = &args.path;
 
@@ -82,10 +81,10 @@ impl Routine {
     }
 }
 
-pub fn run_routines<'a, 'b, T: crate::SyncWrite>(
-    routines: &Vec<Routine>,
+pub fn run_routines<T: crate::SyncWrite>(
+    routines: &[Routine],
     f: &FileState,
-    p: &ProgramState<'a, 'b, T>,
+    p: &ProgramState<'_, '_, T>,
 ) -> Result<(), crate::RuntimeError> {
     filter_non_fatal_errors(
         run_routines_inner(routines, f, p)
@@ -93,10 +92,10 @@ pub fn run_routines<'a, 'b, T: crate::SyncWrite>(
     )
 }
 
-fn run_routines_inner<'a, 'b, T: crate::SyncWrite>(
-    routines: &Vec<Routine>,
+fn run_routines_inner<T: crate::SyncWrite>(
+    routines: &[Routine],
     f: &FileState,
-    p: &ProgramState<'a, 'b, T>,
+    p: &ProgramState<'_, '_, T>,
 ) -> crate::Result<()> {
     for routine in routines.iter() {
         match &routine.cond {
@@ -188,11 +187,8 @@ impl Action {
             }
             // Default action is to print filename:
             None => {
-                match f {
-                    Some(f) => {
-                        let _ = p.out.write(&format!("{}\n", f.path.display()).as_bytes());
-                    }
-                    None => {}
+                if let Some(f) = f {
+                    let _ = p.out.write(format!("{}\n", f.path.display()).as_bytes());
                 };
             }
         };

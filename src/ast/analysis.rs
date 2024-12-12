@@ -10,7 +10,7 @@ pub fn analyze(
     known_arrays: &HashMap<String, usize>,
     begin: &mut Option<Action>,
     end: &mut Option<Action>,
-    routines: &mut Vec<Routine>,
+    routines: &mut [Routine],
 ) -> crate::Result<usize> {
     let mut vars = VarsMap::new(known_arrays);
 
@@ -28,25 +28,26 @@ pub fn analyze(
 /// Analyzes an expression `e`, replacing `Variable::NotYetKnown` types with the appropriate kind of
 /// variable.
 fn analyze_expression(e: &mut Expression, vars: &mut VarsMap) -> crate::Result<()> {
-    Ok(match e {
+    match e {
         Expression::Attr(_) => {}
         Expression::Atom(_) => {}
-        Expression::Var(v) => match v {
-            Variable::NotYetKnown(name) => {
+        Expression::Var(v) => {
+            if let Variable::NotYetKnown(name) = v {
                 *e = Expression::Var(vars.new_variable(name));
             }
-            _ => {}
-        },
+        }
         Expression::Bin(b) => {
             analyze_expression(&mut b.left, vars)?;
             analyze_expression(&mut b.right, vars)?;
         }
-    })
+    };
+
+    Ok(())
 }
 
 fn analyze_assignment(a: &mut Assignment, vars: &mut VarsMap) -> crate::Result<()> {
     let new_lhs = match &a.lhs {
-        Variable::NotYetKnown(name) => vars.new_variable(&name),
+        Variable::NotYetKnown(name) => vars.new_variable(name),
         _ => a.lhs.clone(),
     };
 
@@ -88,9 +89,8 @@ fn analyze_action(mut action: Option<&mut Action>, vars: &mut VarsMap) -> crate:
 }
 
 fn analyze_routine(routine: &mut Routine, vars: &mut VarsMap) -> crate::Result<()> {
-    match &mut routine.cond {
-        Some(cond) => analyze_expression(&mut cond.expr, vars)?,
-        None => {}
+    if let Some(cond) = &mut routine.cond {
+        analyze_expression(&mut cond.expr, vars)?
     };
 
     analyze_action(Some(&mut routine.action), vars)

@@ -19,7 +19,7 @@ pub enum Variable {
 
 impl Variable {
     pub fn evaluate(&self, f: Option<&FileState>, vars: &VariableState) -> crate::Result<Value> {
-        vars.get_variable(f, &self)
+        vars.get_variable(f, self)
     }
 }
 
@@ -59,7 +59,7 @@ pub enum VariableState<'a> {
     Unlocked(UnlockedVars<'a>),
 }
 
-impl<'a> VariableState<'a> {
+impl VariableState<'_> {
     pub fn new(num_scalars: usize, num_arrays: usize) -> Self {
         VariableState::Locked(LockedVars::new(num_scalars, num_arrays))
     }
@@ -94,7 +94,7 @@ pub struct UnlockedVars<'a> {
     arrays: &'a Arrays,
 }
 
-impl<'a> UnlockedVars<'a> {
+impl UnlockedVars<'_> {
     fn get_variable(&self, f: Option<&FileState>, var: &Variable) -> crate::Result<Value> {
         Ok(match var {
             Variable::NotYetKnown(name) => {
@@ -143,8 +143,8 @@ impl LockedVars {
                 let scalars = self.scalars.lock().unwrap();
                 let arrays = self.arrays.lock().unwrap();
                 let unlocked = UnlockedVars {
-                    scalars: &*scalars,
-                    arrays: &*arrays,
+                    scalars: &scalars,
+                    arrays: &arrays,
                 };
                 arrays.get_variable(f, &VariableState::Unlocked(unlocked), arr)?
             }
@@ -160,8 +160,8 @@ impl LockedVars {
         let mut scalars = self.scalars.lock().unwrap();
         let mut arrays = self.arrays.lock().unwrap();
         let unlocked = UnlockedVars {
-            scalars: &*scalars,
-            arrays: &*arrays,
+            scalars: &scalars,
+            arrays: &arrays,
         };
         let new = expr.evaluate(f, &VariableState::Unlocked(unlocked))?;
 
@@ -174,8 +174,8 @@ impl LockedVars {
             }
             Variable::ArrSub(arr) => {
                 let unlocked = UnlockedVars {
-                    scalars: &*scalars,
-                    arrays: &*arrays,
+                    scalars: &scalars,
+                    arrays: &arrays,
                 };
                 let subscript = arr
                     .subscript

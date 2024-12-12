@@ -35,7 +35,7 @@ impl Value {
     pub fn is_truthy(self) -> Result<bool, RuntimeError> {
         Ok(match self {
             Value::Int(i) => i != 0,
-            Value::String(s) => s != "",
+            Value::String(s) => !s.is_empty(),
             Value::Boolean(b) => b,
             // Don't allow trying to interpret an inode number, UID, etc. as a bool:
             // XXX: can this be made a compile time error?

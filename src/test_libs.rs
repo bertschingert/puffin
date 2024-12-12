@@ -88,10 +88,10 @@ impl<'a> TestState<'a> {
     fn create_file_fullpath(&self, path: &Path, metadata: Option<Metadata>) -> Result<()> {
         match metadata {
             Some(md) => {
-                self.create_file_md(&path, md)?;
+                self.create_file_md(path, md)?;
             }
             None => {
-                std::fs::File::create(&path)?;
+                std::fs::File::create(path)?;
             }
         };
 
@@ -181,6 +181,12 @@ pub struct Metadata {
 
 pub struct Buffer {
     data: Mutex<Vec<u8>>,
+}
+
+impl Default for Buffer {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Buffer {

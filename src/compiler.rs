@@ -223,30 +223,25 @@ impl<'a> Compiler<'a> {
         let mut left = self.factor()?;
 
         let mut next = self.peek();
-        loop {
-            match next {
-                Token::BinOp(op) => {
-                    let op = *op;
-                    if Self::op_precedence(op) < min_precedence {
-                        break;
-                    }
-
-                    self.next();
-
-                    // Left-associative operators (the only kind we have so far) pass in a higher
-                    // precedence so that subsequent operations at the same precedence level bind
-                    // to the left.
-                    let right = self.expression(Self::op_precedence(op) + 1)?;
-                    left = Expression::Bin(BinaryOp {
-                        kind: op,
-                        left: Box::new(left),
-                        right: Box::new(right),
-                    });
-
-                    next = self.peek();
-                }
-                _ => break,
+        while let Token::BinOp(op) = next {
+            let op = *op;
+            if Self::op_precedence(op) < min_precedence {
+                break;
             }
+
+            self.next();
+
+            // Left-associative operators (the only kind we have so far) pass in a higher
+            // precedence so that subsequent operations at the same precedence level bind
+            // to the left.
+            let right = self.expression(Self::op_precedence(op) + 1)?;
+            left = Expression::Bin(BinaryOp {
+                kind: op,
+                left: Box::new(left),
+                right: Box::new(right),
+            });
+
+            next = self.peek();
         }
 
         Ok(left)
@@ -299,7 +294,7 @@ impl<'a> Compiler<'a> {
                     "Expected ']' after array subscript expression",
                 )?;
                 Variable::ArrSub(ArraySubscript {
-                    id: id,
+                    id,
                     subscript: Box::new(e),
                 })
             }
